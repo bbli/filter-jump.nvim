@@ -1,54 +1,46 @@
-import re
 import pynvim
 
 @pynvim.plugin
-class Translator(object):
+class Limit(object):
     def __init__(self, vim):
         self.vim = vim
-        self.data_base = None
-        self.reverse_data_base = None
-        self.reTextId = re.compile('"(?P<textid>(?P<category>\d+)-(?P<number>\d+))"')
-        self.reTranslated = re.compile('"--(?P<translation>[ a-zA-Z0-9.,;:!?-]*)--"')
-        self.update_db()
+        self.calls = 0
 
-    @pynvim.command('UpdateTextDb', sync=True)
-    def update_db(self):
-        self.data_base = {}
-        self.reverse_data_base = {}
-        db_file = self.vim.vars.get('textid_db_file')
-        if db_file:
-            with open(db_file, "r") as db:
-                for line in db.readlines():
-                    tid, text = line.strip().split('|')
-                    self.data_base[tid] = text
-                    self.reverse_data_base[text] = tid
-
-    def lookup_text_id_by_match(self, matchObject):
-        tid = matchObject.group("textid")
-        if tid in self.data_base:
-            return '"--' + self.data_base[tid] + '--"'
-        else:
-            self.vim.out_write(f"Unknown text ID: {tid}")
-            return f'"{tid}"'
-
-    def lookup_translated_by_match(self, matchObject):
-        text = matchObject.group("translation")
-        if text in self.reverse_data_base:
-            return '"' + self.reverse_data_base[text] + '"'
-        else:
-            self.vim.out_write(f"Unknown text")
-            return f'"--{text}--"'
-
-    def toggle_line(self, line):
-        if self.reTextId.search(line):
-            return self.reTextId.sub(self.lookup_text_id_by_match, line)
-        else:
-            return self.reTranslated.sub(self.lookup_translated_by_match, line)
-
-    @pynvim.command('ToggleTextId', range=True, nargs='*', sync=True)
+    @pynvim.command('Cmd', range='', nargs='*', sync=True)
     def command_handler(self, args, range):
-        start, end = range
-        # Range is given 1-based, but we need 0-based indexing
-        lines = self.vim.current.buffer[start-1:end]
-        toggled_lines = list(map(self.toggle_line, lines))
-        self.vim.current.buffer[start-1:end] = toggled_lines
+        self._increment_calls()
+        self.vim.current.line = (
+            'Command: Called %d times, args: %s, range: %s' % (self.calls,
+                                                               args,
+                                                               range))
+
+    @pynvim.autocmd('BufEnter', pattern='*.py', eval='expand("<afile>")',
+                    sync=True)
+    def autocmd_handler(self, filename):
+        self._increment_calls()
+        self.vim.current.line = (
+            'Autocmd: Called %s times, file: %s' % (self.calls, filename))
+
+    @pynvim.function('Func')
+    def function_handler(self, args):
+        self._increment_calls()
+        self.vim.current.line = (
+            'Function: Called %d times, args: %s' % (self.calls, args))
+
+    def _increment_calls(self):
+        if self.calls == 5:
+            raise Exception('Too many calls!')
+        self.calls += 1
+
+
+# @pynvim.plugin
+# class Jumper(object):
+    # def __init__(self,vim):
+        # self.vim = vim
+    # @pynvim.command("OpenJumpBuffer",range=True, nargs=0, sync=False)
+    # def open_jump_buffer(self):
+        # self.vim.kkkk
+
+
+    # @pynvim.autocmd("TextChangedI", pattern='MySpecialBuffer', sync=True)
+    # def buffer_complete(self):

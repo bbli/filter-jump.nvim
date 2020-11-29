@@ -15,12 +15,13 @@ function g:Mynumber(arg)
   echo line(".") . " " . a:arg
 endfunction
 
-function! GetPotionFold(lnum)
-    if getline(a:lnum) =~? '\v^\s*$'
-        return '-1'
-    endif
+"function! GetPotionFold(lnum)
+    "if getline(a:lnum) =~? '\v^\s*$'
+        "return '-1'
+    "endif
 
-    return '0'
-endfunction
+    "return '0'
+"endfunction
 "1,5call Mynumber(getline("."))
 
+command! -nargs=1 FW echo "<args>"
