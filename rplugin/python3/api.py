@@ -1,3 +1,3 @@
-from pynvim import *
+# from pynvim import *
 
-print(nvim_buf_attach())
+# print(nvim_buf_attach())
