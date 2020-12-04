@@ -8,41 +8,6 @@ def DPrintf(stringable):
     log_file.write(str(stringable))
     log_file.write('\n')
     log_file.flush()
-    
-
-# @pynvim.plugin
-# class Limit(object):
-    # def __init__(self, vim):
-        # self.vim = vim
-        # self.calls = 0
-
-    # @pynvim.command('Cmd2', range='', nargs='*', sync=True)
-    # def command_handler(self, args, range):
-        # self._increment_calls()
-        # self.vim.current.line = (
-            # 'Command: Called %d times, args: %s, range: %s' % (self.calls,
-                                                               # args,
-                                                               # range))
-
-    # @pynvim.autocmd('BufEnter', pattern='*.txo', eval='expand("<afile>")',
-                    # sync=True)
-    # def autocmd_handler(self, filename):
-        # self._increment_calls()
-        # DPrintf(dir(self.vim.buffers))
-        # DPrintf("HII")
-        # self.vim.current.line = (
-                # 'Autocmd: Called %s times, file: %s var: %s' % (self.calls, filename,a))
-
-    # @pynvim.function('Func')
-    # def function_handler(self, args):
-        # self._increment_calls()
-        # self.vim.current.line = (
-            # 'Function: Called %d times, args: %s' % (self.calls, args))
-
-    # def _increment_calls(self):
-        # # if self.calls == 5:
-            # # raise Exception('Too many calls!')
-        # self.calls += 1
 
 class WindowBufferPair(object):
     def __init__(self,window,buffer,vim):
@@ -55,13 +20,41 @@ class WindowBufferPair(object):
     def getCurrCursorForced(self):
         return self.vim.request("nvim_win_get_cursor",self.window)
 
-class LineTranslator(object):
+class AbsLineTranslator(object):
     def __init__(self,range,abs_top,abs_bottom):
-        if len(range) != abs_top-abs_bottom+1:
+        if len(range) != abs_bottom-abs_top+1:
+            DPrintf(len(range))
+            DPrintf(abs_top)
+            DPrintf(abs_bottom)
             raise ArithmeticError
         self.abs_top = abs_top
         self.abs_bottom = abs_bottom
         self.range = range
+    def translate(self,rel_line):
+        return self.abs_top + rel_line
+
+def createCompressedLines(range,set_of_strip_characters):
+    compressed_range = []
+    for string in range:
+        new_string = []
+        index_map = []
+        for i,char in enumerate(string.lower()):
+            if char not in set_of_strip_characters:
+                new_string.append(char)
+                index_map.append(i)
+        new_string = ''.join(new_string)
+        compressed_range.append(CompressedString(new_string,index_map))
+    return compressed_range
+
+class CompressedString(object):
+    def __init__(self,string,index_map):
+        self.string = string
+        self.index_map = index_map
+    def getString(self):
+        return self.string
+    def expand(self,match):
+        return self.index_map[match.start()], self.index_map[match.end()]
+
 
 @pynvim.plugin
 class Jumper(object):
@@ -70,15 +63,15 @@ class Jumper(object):
         self.o_window_buffer_pair = None
         self.j_window_buffer_pair = None
         self.type = None
-    @pynvim.command("OpenJumpBufferUp", nargs=0, sync=True)
+    @pynvim.command("OpenJumpBufferDown", nargs=0, sync=True)
     def open_jump_buffer(self):
-        self.type = "Up"
+        self.type = "Down"
         self.o_window_buffer_pair = WindowBufferPair(
                 self.vim.current.window,
                 self.vim.current.buffer,
                 self.vim
                 )
-        self.vim.command("split")
+        self.vim.command("belowright split")
         self.vim.command("e JumpBuffer")
         self.vim.command("setlocal buftype=nofile")
         self.vim.command('setlocal filetype=JumpBuffer')
@@ -90,45 +83,60 @@ class Jumper(object):
                 self.vim)
         self.vim.command("startinsert")
 
+        self.compressed_lines = None
+
     @pynvim.autocmd("TextChangedI", pattern='JumpBuffer', sync=True)
     def buffer_complete(self):
         # 1. get current word in JumpBuffer
+        # TODO: more than just a word
         jw_word = self.vim.current.line
         if len(jw_word) < 2:
             return
         # 2. get whether look up or look down -> and then create the range
-        line_obj = self._getLineRange(self.o_window_buffer_pair,self.type)
-        # DPrintf(lines)
-        
-        # matches = do_filter(line_obj.range,jw_word)
+        # TODO: seperate line_obj and range
+        line_obj = getLineRange(self.vim,self.o_window_buffer_pair,self.type)
+        compressed_lines = createCompressedLines(line_obj.range,
+                self.getGlobalVariable("set_of_strip_characters",[])
+                )
+        lm_pairs = doFilter(compressed_lines,jw_word)
+        expanded_lm_pairs = [ (line,compressed_lines[line].expand(match)) for (line,match) in lm_pairs]
+        abs_expanded_lm_pairs = [ (line_obj.translate(line),match_span) for (line,match_span) in expanded_lm_pairs]
 
-        # self.vim.request("nvim_buf_add_highlight",buffer,ns,hl_group,line,col_start,col_end)
+        AddHighlights(self.vim,abs_expanded_lm_pairs,self.o_window_buffer_pair.buffer)
         # cursor(lnum,col)
 
-
-    def _getLineRange(self,wb_pair, type):
-        ow_cursor_x,_ = wb_pair.getCurrCursorForced() # line number is absolute
-        if type == "Up":
-            ow_top_line = getLineNumberFromWindowMotion(wb_pair,"H")
-            range = self.vim.call("getbufline",wb_pair.buffer,ow_top_line,ow_cursor_x)
-            return LineTranslator(range,ow_top_line,ow_cursor_x)
-        elif type == "Down":
-            ow_bottom_line = getLineNumberFromWindowMotion(wb_pair,"L") # number already accounts for resize due to JumpBuffer
-            range = self.vim.call("getbufline",wb_pair.buffer,ow_cursor_x,ow_bottom_line)
-            return LineTranslator(range,ow_cursor_x,ow_bottom_line)
-        else:
-            DPrintf("shouldntt reach here")
+    def getGlobalVariable(self,string_name,default):
+        return self.vim.vars.get(string_name,default)
 
 
 ################ **Helpers** ##################
-def do_filter(lines,word):
-    list_of_matches = []
+def AddHighlights(vim,abs_expanded_lm_pairs,buffer):
+    new_ns = vim.request("nvim_create_namespace","")
+    for (l,match_span) in abs_expanded_lm_pairs:
+        vim.request("nvim_buf_add_highlight",buffer,new_ns,"SearchHighlight",l,match_span[0],match_span[1])
+
+def doFilter(compressed_lines,word):
+    list_of_matches = [] # tuples of (line_number, match_object)
     # TODO: search order changes depending on search up or search down
-    for i,line in enumerate(lines):
-        results = re.finditer(word,transform(line))
+    for i,line in enumerate(compressed_lines):
+        results = re.finditer(word,line.getString())
         for match in results:
             list_of_matches.append((i,match))
     return list_of_matches
+
+def getLineRange(vim,wb_pair, type):
+    ow_cursor_x,_ = wb_pair.getCurrCursorForced() # line number is absolute
+    if type == "Up":
+        ow_top_line = getLineNumberFromWindowMotion(wb_pair,"H")
+        range = vim.call("getbufline",wb_pair.buffer,ow_top_line,ow_cursor_x)
+        return AbsLineTranslator(range,ow_top_line,ow_cursor_x)
+    elif type == "Down":
+        ow_bottom_line = getLineNumberFromWindowMotion(wb_pair,"L") # number already accounts for resize due to JumpBuffer
+        range = vim.call("getbufline",wb_pair.buffer,ow_cursor_x,ow_bottom_line)
+        return AbsLineTranslator(range,ow_cursor_x,ow_bottom_line)
+    else:
+        DPrintf("shouldntt reach here")
+
 
 def printCurrJumpList(wb_pair,num):
     jump_list1 = wb_pair.vim.call("getjumplist",wb_pair.window)
@@ -144,7 +152,7 @@ def getLineNumberFromWindowMotion(wb_pair, motion):
 
     # switch windows and make the move
     wb_pair.vim.call("win_gotoid",wb_pair.window) # now that we are back, nothing happens
-    wb_pair.vim.command("keepjumps normal! " + motion) # w/o keep jumps, JumpList will add curr location to jumplist -> But doesn't matter since we are going to come back anyways?
+    wb_pair.vim.command("keepjumps normal! " + motion) # w/o keep jumps, JumpList will add curr location to jumplist
     new_row,_ = wb_pair.getCurrCursorForced()
 
     # move back
