@@ -1,7 +1,9 @@
 import pynvim
 import re
 
+
 a = 1000 # since this works, this means that a python process is spun up and waiting in the background to run these "handlers"
+
 
 log_file = open('log.txt','w')
 def DPrintf(stringable):
@@ -21,30 +23,20 @@ class WindowBufferPair(object):
         return self.vim.request("nvim_win_get_cursor",self.window)
 
 class AbsLineTranslator(object):
-    def __init__(self,range,abs_top,abs_bottom):
-        if len(range) != abs_bottom-abs_top+1:
-            DPrintf(len(range))
+    def __init__(self,page_content: list,abs_top:int,abs_bottom:int):
+        if len(page_content) != abs_bottom-abs_top+1:
+            DPrintf(len(page_content))
             DPrintf(abs_top)
             DPrintf(abs_bottom)
             raise ArithmeticError
         self.abs_top = abs_top
         self.abs_bottom = abs_bottom
-        self.range = range
+        self.page_content = page_content
     def translate(self,rel_line):
         return self.abs_top + rel_line
+    def translateMatches(self,rel_line,list_of_ranges):
+        return [(self.translate(rel_line),range) for range in list_of_ranges]
 
-def createCompressedLines(range,set_of_strip_characters):
-    compressed_range = []
-    for string in range:
-        new_string = []
-        index_map = []
-        for i,char in enumerate(string.lower()):
-            if char not in set_of_strip_characters:
-                new_string.append(char)
-                index_map.append(i)
-        new_string = ''.join(new_string)
-        compressed_range.append(CompressedString(new_string,index_map))
-    return compressed_range
 
 class CompressedString(object):
     def __init__(self,string,index_map):
@@ -52,14 +44,31 @@ class CompressedString(object):
         self.index_map = index_map
     def getString(self):
         return self.string
-    def expand(self,match):
-        return self.index_map[match.start()], self.index_map[match.end()]
+    def expand(self,start,end):
+        return self.index_map[start], self.index_map[end]
+    def expandMatches(self,matches):
+        return [self.expand(match.start(),match.end()) for match in matches]
+    @classmethod
+    def createArrayOfCompressedStrings(cls,page_content,set_of_strip_characters):
+        self.getGlobalVariable("set_of_strip_characters",[])
+        compressed_range = []
+        for string in page_content:
+            new_string = []
+            index_map = []
+            for i,char in enumerate(string.lower()):
+                if char not in set_of_strip_characters:
+                    new_string.append(char)
+                    index_map.append(i)
+            new_string = ''.join(new_string)
+            compressed_range.append(CompressedString(new_string,index_map))
+        return compressed_range
 
 
 @pynvim.plugin
 class Jumper(object):
     def __init__(self,vim):
         self.vim = vim
+        DPrintf("Type of Vim: "+str(type(vim)))
         self.o_window_buffer_pair = None
         self.j_window_buffer_pair = None
         self.type = None
@@ -92,17 +101,22 @@ class Jumper(object):
         jw_word = self.vim.current.line
         if len(jw_word) < 2:
             return
-        # 2. get whether look up or look down -> and then create the range
-        # TODO: seperate line_obj and range
-        line_obj = getLineRange(self.vim,self.o_window_buffer_pair,self.type)
-        compressed_lines = createCompressedLines(line_obj.range,
-                self.getGlobalVariable("set_of_strip_characters",[])
-                )
-        lm_pairs = doFilter(compressed_lines,jw_word)
-        expanded_lm_pairs = [ (line,compressed_lines[line].expand(match)) for (line,match) in lm_pairs]
-        abs_expanded_lm_pairs = [ (line_obj.translate(line),match_span) for (line,match_span) in expanded_lm_pairs]
+        # 2. get whether look up or look down -> and then create the page_content
+        # TODO: seperate line_obj and page_content
+        page_content, line_translator = self.vim.getLineRange(self.o_window_buffer_pair,self.type)
+        array_of_c_strings = CompressedString.createArrayOfCompressedStrings(page_content)
 
-        AddHighlights(self.vim,abs_expanded_lm_pairs,self.o_window_buffer_pair.buffer)
+        list_of_highlights = []
+        for rel_line,c_string in enumerate(array_of_c_strings):
+            matches = findMatches(c_string,jw_word)
+            # Q: make both of these methods?
+            expanded_matches = c_string.expandMatches(matches) 
+            lm_pairs = line_translator.translateMatches(rel_line,expanded_matches)
+
+            list_of_highlights.extend(lm_pairs)
+
+
+        self.vim.AddHighlights(list_of_highlights,self.o_window_buffer_pair)
         # cursor(lnum,col)
 
     def getGlobalVariable(self,string_name,default):
@@ -110,12 +124,8 @@ class Jumper(object):
 
 
 ################ **Helpers** ##################
-def AddHighlights(vim,abs_expanded_lm_pairs,buffer):
-    new_ns = vim.request("nvim_create_namespace","")
-    for (l,match_span) in abs_expanded_lm_pairs:
-        vim.request("nvim_buf_add_highlight",buffer,new_ns,"SearchHighlight",l,match_span[0],match_span[1])
 
-def doFilter(compressed_lines,word):
+def findMatches(compressed_lines,word):
     list_of_matches = [] # tuples of (line_number, match_object)
     # TODO: search order changes depending on search up or search down
     for i,line in enumerate(compressed_lines):
@@ -124,18 +134,6 @@ def doFilter(compressed_lines,word):
             list_of_matches.append((i,match))
     return list_of_matches
 
-def getLineRange(vim,wb_pair, type):
-    ow_cursor_x,_ = wb_pair.getCurrCursorForced() # line number is absolute
-    if type == "Up":
-        ow_top_line = getLineNumberFromWindowMotion(wb_pair,"H")
-        range = vim.call("getbufline",wb_pair.buffer,ow_top_line,ow_cursor_x)
-        return AbsLineTranslator(range,ow_top_line,ow_cursor_x)
-    elif type == "Down":
-        ow_bottom_line = getLineNumberFromWindowMotion(wb_pair,"L") # number already accounts for resize due to JumpBuffer
-        range = vim.call("getbufline",wb_pair.buffer,ow_cursor_x,ow_bottom_line)
-        return AbsLineTranslator(range,ow_cursor_x,ow_bottom_line)
-    else:
-        DPrintf("shouldntt reach here")
 
 
 def printCurrJumpList(wb_pair,num):
