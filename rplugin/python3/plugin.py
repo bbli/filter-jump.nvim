@@ -41,19 +41,21 @@ class Jumper(object):
     def buffer_complete(self):
         # 1. get current word in JumpBuffer
         # TODO: more than just a word
-        jw_word = self.vim.current.line
-        if len(jw_word) < 2:
+        c_word = self.vim.current.line
+        if len(c_word) < 2:
             return
+        c_word = CompressedString(c_word,self.vim.getSetOfStripCharacters())
         # 2. get whether look up or look down -> and then create the page_content
-        page_content, line_translator = self.vim.getLineRange(self.o_window_buffer_pair,self.type)
+        page_content, vim_translator = self.vim.getLineRange(self.o_window_buffer_pair,self.type)
         array_of_c_strings = CompressedString.createArrayOfCompressedStrings(page_content,self.vim.getSetOfStripCharacters())
 
         list_of_highlights = []
         for rel_line,c_string in enumerate(array_of_c_strings):
-            matches = findMatches(c_string,jw_word)
-            # Q: make both of these methods?
+            matches = findMatches(c_string,c_word)
+            if not matches:
+                continue
             expanded_matches = c_string.expandMatches(matches) 
-            lm_pairs = line_translator.translateMatches(rel_line,expanded_matches)
+            lm_pairs = vim_translator.translateMatches(rel_line,expanded_matches)
 
             list_of_highlights.extend(lm_pairs)
 
@@ -64,10 +66,12 @@ class Jumper(object):
 
 
 ################ **Helpers** ##################
-
-def findMatches(c_string,word):
+def findMatches(c_string,c_word):
+    """
+    Note: match.end()  returns 1 over, just like C++
+    """
     # TODO: search order changes depending on search up or search down
-    return [ x for x in re.finditer(word,c_string.getString())]
+    return [ x for x in re.finditer(c_word.getString(),c_string.getString())]
 
 
 def printCurrJumpList(wb_pair,num):

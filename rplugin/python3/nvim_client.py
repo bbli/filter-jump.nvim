@@ -18,16 +18,21 @@ def getLineRange(vim,wb_pair, type):
         DPrintf("shouldntt reach here")
 
     page_content = vim.call("getbufline",wb_pair.buffer,abs_top,abs_bottom)
-    return page_content,AbsLineTranslator(abs_top,abs_bottom)
+    return page_content,VimTranslator(abs_top)
 def getSetOfStripCharacters(vim):
     return vim.vars.get("set_of_strip_characters",[])
 
-def addHighlights(vim,abs_expanded_lm_pairs,window_buffer_pair):
+def addHighlights(vim,vim_pairs,window_buffer_pair):
+    """
+    Note: match_range should be exclusive at end
+    Note: 0 indexed horizontally and vertically, despite vim frontend being otherwise
+    """
     buffer = window_buffer_pair.buffer
     new_ns = vim.request("nvim_create_namespace","")
 
-    for (l,match_range) in abs_expanded_lm_pairs:
+    for (l,match_range) in vim_pairs:
         vim.request("nvim_buf_add_highlight",buffer,new_ns,"SearchHighlight",l,match_range[0],match_range[1])
+        # vim.request("nvim_buf_add_highlight",buffer,new_ns,"SearchHighlight",l,0,5)
 
 
 
