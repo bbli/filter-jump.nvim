@@ -41,7 +41,7 @@ class VimTranslator(object):
 
 ################ **** ##################
 class CompressedString(object):
-    def __init__(self,string,set_of_strip_characters):
+    def __init__(self,string,set_of_strip_characters=['_']):
         new_string = []
         index_map = []
         for i,char in enumerate(string.lower()):

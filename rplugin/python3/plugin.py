@@ -41,38 +41,54 @@ class Jumper(object):
     def buffer_complete(self):
         # 1. get current word in JumpBuffer
         # TODO: more than just a word
-        c_word = self.vim.current.line
-        if len(c_word) < 2:
+        c_word, filters = extractWordAndFilters(self.vim.current.line,self.strip_set)
+        if len(c_word.getString()) < 2:
             return
-        c_word = CompressedString(c_word,self.vim.getSetOfStripCharacters())
         # 2. get whether look up or look down -> and then create the page_content
-        page_content, vim_translator = self.vim.getLineRange(self.o_window_buffer_pair,self.type)
-        array_of_c_strings = CompressedString.createArrayOfCompressedStrings(page_content,self.vim.getSetOfStripCharacters())
+        page_content, vim_translator = self.vim.getLineRange(self.o_window_buffer_pair,self.search_direction)
+        array_of_c_strings = CompressedString.createArrayOfCompressedStrings(page_content,self.strip_set)
 
-        list_of_highlights = []
+        self.list_of_highlights = []
         for rel_line,c_string in enumerate(array_of_c_strings):
-            matches = findMatches(c_string,c_word)
+            matches = findMatches(c_string,c_word,filters)
             if not matches:
                 continue
             expanded_matches = c_string.expandMatches(matches) 
             lm_pairs = vim_translator.translateMatches(rel_line,expanded_matches)
 
-            list_of_highlights.extend(lm_pairs)
+            self.list_of_highlights.extend(lm_pairs)
 
 
-        self.vim.addHighlights(list_of_highlights,self.o_window_buffer_pair)
-        # cursor(lnum,col)
-
+        # DPrintf("list_of_highlights: {}".format(list_of_highlights))
+        self.vim.addHighlights(self.list_of_highlights,self.o_window_buffer_pair,self.ns)
 
 
 ################ **Helpers** ##################
-def findMatches(c_string,c_word):
+def extractWordAndFilters(input,strip_set):
+    input = input.split(' ')
+
+    c_word = input[0]
+    c_word = CompressedString(c_word,strip_set)
+
+    if len(input) > 1:
+        c_filters = [CompressedString(x,strip_set) for x in input[1:]]
+    else:
+        c_filters = []
+
+    return c_word,c_filters
+def findMatches(c_string,c_word,list_of_c_filters=[]):
     """
     Note: match.end()  returns 1 over, just like C++
     """
+    matches = _findCWordInCString(c_word,c_string)
     # TODO: search order changes depending on search up or search down
-    return [ x for x in re.finditer(c_word.getString(),c_string.getString())]
+    for c_filter in list_of_c_filters:
+        if not _findCWordInCString(c_filter,c_string):
+            return []
+    return matches
 
+def _findCWordInCString(c_word,c_string):
+    return [ x for x in re.finditer(c_word.getString(),c_string.getString())]
 
 def printCurrJumpList(wb_pair,num):
     jump_list1 = wb_pair.vim.call("getjumplist",wb_pair.window)

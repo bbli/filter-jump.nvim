@@ -2,16 +2,18 @@ import pytest
 from plugin import *
 from base import *
 
-@pytest.fixture
 def multiple_lines():
     return [
             'apple head_23 ShardIdx',
             'func t(arg *PutReply){}'
             ]
-def test_createRangeOfCompressedStrings_EmptyStrip(multiple_lines):
-    new_list = CompressedString.createArrayOfCompressedStrings(multiple_lines,[])
-    assert [ a  == b.getString() for (a,b) in zip(multiple_lines,new_list)]
+def test_createRangeOfCompressedStrings_EmptyStrip():
+    new_list = CompressedString.createArrayOfCompressedStrings(multiple_lines(),[])
+    assert [ a  == b.getString() for (a,b) in zip(multiple_lines(),new_list)]
 
+@pytest.fixture
+def multiple_cstrings():
+    return CompressedString.createArrayOfCompressedStrings(multiple_lines(),['_'])
 
 @pytest.fixture
 def one_line_c_string():
@@ -59,11 +61,33 @@ def test_translateMatches(textFile):
         matches = findMatches(c_string,c_word)
         if not matches:
             continue
-        DPrintf("c_string = {}".format(c_string.getString()))
-        DPrintf("Output = {},{}".format(matches[0].start(),matches[0].end()))
+        # DPrintf("c_string = {}".format(c_string.getString()))
+        # DPrintf("Output = {},{}".format(matches[0].start(),matches[0].end()))
         # Q: make both of these methods?
         expanded_matches = c_string.expandMatches(matches) 
         lm_pairs = line_translator.translateMatches(rel_line,expanded_matches)
         list_of_highlights.extend(lm_pairs)
         break
-    assert list_of_highlights[0] == (12,(11,17))
+    assert list_of_highlights[0] == (11,(10,16))
+
+def test_findMatches_filterNoResults(one_line_c_string):
+    c_word = CompressedString('apple',['_'])
+    filter = CompressedString('DD',['_'])
+    matches1 = findMatches(one_line_c_string,c_word)
+    assert len(matches1) == 1
+    matches2 = findMatches(one_line_c_string,c_word,[filter])
+    assert len(matches2) == 0
+
+
+def test_findMatches_filterTwoDownToOneResult(multiple_cstrings):
+    c_word = CompressedString('a',['_'])
+    filter = CompressedString('head')
+    matches1 = findMatches(multiple_cstrings[0],c_word)
+    matches2 = findMatches(multiple_cstrings[1],c_word)
+    assert len(matches1) + len(matches2) == 4
+
+    filter_match1 = findMatches(multiple_cstrings[0],c_word,[filter])
+    filter_match2 = findMatches(multiple_cstrings[1],c_word,[filter])
+    assert len(filter_match1) == 3
+    assert len(filter_match2) == 0
+

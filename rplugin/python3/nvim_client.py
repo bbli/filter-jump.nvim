@@ -22,16 +22,16 @@ def getLineRange(vim,wb_pair, type):
 def getSetOfStripCharacters(vim):
     return vim.vars.get("set_of_strip_characters",[])
 
-def addHighlights(vim,vim_pairs,window_buffer_pair):
+def addHighlights(vim,vim_pairs,window_buffer_pair,ns):
     """
     Note: match_range should be exclusive at end
     Note: 0 indexed horizontally and vertically, despite vim frontend being otherwise
     """
     buffer = window_buffer_pair.buffer
-    new_ns = vim.request("nvim_create_namespace","")
 
+    vim.request("nvim_buf_clear_namespace",buffer,ns,0,-1)
     for (l,match_range) in vim_pairs:
-        vim.request("nvim_buf_add_highlight",buffer,new_ns,"SearchHighlight",l,match_range[0],match_range[1])
+        vim.request("nvim_buf_add_highlight",buffer,ns,"SearchHighlight",l,match_range[0],match_range[1])
         # vim.request("nvim_buf_add_highlight",buffer,new_ns,"SearchHighlight",l,0,5)
 
 
