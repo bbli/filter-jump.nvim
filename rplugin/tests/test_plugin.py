@@ -1,4 +1,7 @@
 import pytest
+import os, sys; 
+var = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))+'/python3'
+sys.path.append(var)
 from plugin import *
 from base import *
 
