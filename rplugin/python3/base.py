@@ -65,11 +65,11 @@ class WindowBufferPair(object):
         """
         self.vim.request("nvim_buf_clear_namespace",self.buffer,highlighter.ns,0,-1)
         # EC: highlights + match are None
-        if not highlighter.list_of_highlights:
+        if not highlighter.getCurrentMatch():
             return
 
         # 1. Highlight first
-        first_line,first_match = highlighter.current_match
+        first_line,first_match = highlighter.getCurrentMatch()
         self.vim.request("nvim_buf_add_highlight",self.buffer,highlighter.ns,"SearchHighlight",first_line,first_match[0],first_match[1])
         # 2. Highlight rest
         for (l,match_range) in highlighter.list_of_highlights:
@@ -133,31 +133,18 @@ class Highlighter(object):
         self.ns = ns
 
         self.list_of_highlights = []
-        self.current_match = None
-        self.saved_current_match = None
+        self.highlight_state = NoMatch()
     def updateHighlights(self,list_of_highlights):
         # EC: no highlight matches
         if not list_of_highlights:
-            self.list_of_highlights = list_of_highlights
-            # self.update_saved_match()
-            self.current_match = None
-            return
-
-        # Case 1: No Previous Matches: Just make first selection current
-        if not self.current_match:
-            # 1. Creates current selection
-            self.current_match = list_of_highlights[0]
+            self.highlight_state = self.highlight_state.update_empty_highlights()
         else:
-        # Case 2: Need to track current selection vs updated matches
-            new_current_match = _findNewContainedInterval(list_of_highlights,self.current_match)
-            # Case 1:
-            if new_current_match:
-                self.current_match = new_current_match
-            else:
-                self.current_match = list_of_highlights[0]
-                
+            self.highlight_state = self.highlight_state.update_highlights(list_of_highlights)
+
         self.list_of_highlights = list_of_highlights
 
+    def getCurrentMatch(self):
+        return self.highlight_state.getCurrentMatch()
 
 def _findNewContainedInterval(list_of_highlights,current_match):
     for match in list_of_highlights:
@@ -211,5 +198,64 @@ def printCurrJumpList(wb_pair,num):
     DPrintf("JumpList" + str(num)+": "+ str(jump_list1))
 
 
-# class HighlightStateMachine(object):
+# State Design Pattern since no Enums
+class HighlightState(object):
+    def update_empty_highlights(self):
+        DPrintf(self.getState()+ ": update_empty_highlights")
+        return self._update_empty_highlights()
+    def update_highlights(self,highlights):
+        DPrintf(self.getState()+ ": update highlights")
+        return self._update_highlights(highlights)
+    def _update_empty_highlights(self):
+        raise NotImplementedError
+    def _update_highlights(self,highlights):
+        raise NotImplementedError
+    def getCurrentMatch(self):
+        raise NotImplementedError
+    def getState(self):
+        raise NotImplementedError
 
+class NoMatch(HighlightState):
+    def __init__(self):
+        pass
+    def _update_empty_highlights(self):
+        return self
+    def _update_highlights(self,highlights):
+        current_match = highlights[0]
+        return HasMatch(current_match)
+    def getCurrentMatch(self):
+        return None
+    def getState(self):
+        return "NoMatch"
+
+class HasMatch(HighlightState):
+    def __init__(self,current_match):
+        self.current_match = current_match
+    def _update_empty_highlights(self):
+        return SavedMatch(self.current_match)
+    def _update_highlights(self,highlights):
+        new_current_match = _findNewContainedInterval(highlights,self.current_match)
+        if new_current_match:
+            return HasMatch(new_current_match)
+        else:
+            return HasMatch(highlights[0])
+    def getCurrentMatch(self):
+        return self.current_match
+    def getState(self):
+        return "HasMatch"
+
+class SavedMatch(HighlightState):
+    def __init__(self,saved_match):
+        self.saved_match = saved_match
+    def _update_empty_highlights(self):
+        return self
+    def _update_highlights(self,highlights):
+        new_current_match = _findNewContainedInterval(highlights,self.saved_match)
+        if new_current_match:
+            return HasMatch(new_current_match)
+        else:
+            return HasMatch(highlights[0])
+    def getCurrentMatch(self):
+        return None
+    def getState(self):
+        return "HasMatch"
