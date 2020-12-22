@@ -16,7 +16,7 @@ class Jumper(object):
         # Search Related
         self.strip_set = vim.vars.get("set_of_strip_characters",[])
         # Highlight + Selection Related
-        self.highlighter = Highlighter(self.vim.request("nvim_create_namespace",""))
+        self.highlighter = None
         # Hotkeys
         self.keymaps = {
             "<C-n>": "JumpBufferNextMatch",
@@ -33,6 +33,8 @@ class Jumper(object):
                 self.vim.current.buffer,
                 self.vim
                 )
+        # set here so highlighter gets reset between every jump call
+        self.highlighter = Highlighter(self.vim.request("nvim_create_namespace",""))
         self.vim.command("belowright split")
         self.vim.command("e JumpBuffer")
         self.vim.command("setlocal buftype=nofile")
@@ -45,7 +47,7 @@ class Jumper(object):
                 self.vim.current.window,
                 self.vim.current.buffer,
                 self.vim)
-        self.vim.command("startinsert")
+        self.vim.command("startinsert!")
 
         # self.compressed_lines = None // maybe do optimization later
 
@@ -55,6 +57,7 @@ class Jumper(object):
         # TODO: more than just a word
         c_word, filters = extractWordAndFilters(self.j_window_buffer.getCurrLine(),self.strip_set)
         if len(c_word.getString()) < 2:
+            self.o_window_buffer.clearHighlights(self.highlighter)
             return
         # 2. get whether look up or look down -> and then create the page_content
         page_content, vim_translator = self.o_window_buffer.getLineRange()
@@ -69,16 +72,29 @@ class Jumper(object):
             lm_pairs = vim_translator.translateMatches(rel_line,expanded_matches)
 
             new_highlights.extend(lm_pairs)
-        self.highlighter.updateHighlights(new_highlights)
+        self.highlighter.update_highlighter(new_highlights)
 
 
         self.o_window_buffer.drawHighlights(self.highlighter)
     @pynvim.command("JumpBufferNextMatch",nargs=0,sync=True)
     def next_match(self):
-        # BC: No current_highlight
-        # TODO: move in circular buffer?
         # 1. change highlighter struct
+        self.highlighter.incrementIndex()
         # 2. redraw
         self.o_window_buffer.drawHighlights(self.highlighter)
+        self.vim.command("startinsert!")
+    @pynvim.command("JumpBufferPrevMatch",nargs=0,sync=True)
+    def prev_match(self):
+        self.highlighter.decrementIndex()
+        self.o_window_buffer.drawHighlights(self.highlighter)
+        self.vim.command("startinsert!")
+    @pynvim.command("JumpBufferSelect",nargs=0,sync=True)
+    def select(self):
+        # NOTE: this needs to be called first to prevent vim from "scrolling" your view down
+        self.j_window_buffer.destroyWindowBuffer()
 
-
+        self.o_window_buffer.setCursor(self.highlighter.getCurrentMatch())
+        self.o_window_buffer.clearHighlights(self.highlighter)
+    @pynvim.command("JumpBufferExit",nargs=0,sync=True)
+    def exit(self):
+        self.j_window_buffer.destroyWindowBuffer()

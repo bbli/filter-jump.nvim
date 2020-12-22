@@ -22,7 +22,17 @@ class WindowBufferPair(object):
 
         # for calling vim
         self.vim = vim
-    # TODO: invalidate cache after search finishes
+    def _getCurrCursorForced(self):
+        return self.vim.request("nvim_win_get_cursor",self.window)
+    def setCursor(self,match):
+        """
+        Row is now 1 indexed
+        """
+        if not match:
+            return
+        r = match[0]+1
+        c = match[1][0]
+        self.vim.request("nvim_win_set_cursor",self.window,(r,c))
     def getCurrLine(self):
         line_num,_ = self._getCurrCursorForced()
         result = self.vim.request("nvim_buf_get_lines",self.buffer,line_num-1,line_num,True)
@@ -37,8 +47,6 @@ class WindowBufferPair(object):
 
         page_content = self.vim.call("getbufline",self.buffer,abs_top,abs_bottom)
         return page_content,VimTranslator(abs_top)
-    def _getCurrCursorForced(self):
-        return self.vim.request("nvim_win_get_cursor",self.window)
     def _getLineFromWindowMotion(self, motion):
         # check jumplist doesn't get added to
         curr_cursor = self._getCurrCursorForced()
@@ -63,18 +71,23 @@ class WindowBufferPair(object):
         Note: match_range should be exclusive at end
         Note: 0 indexed horizontally and vertically, despite vim frontend being otherwise
         """
-        self.vim.request("nvim_buf_clear_namespace",self.buffer,highlighter.ns,0,-1)
+        self.clearHighlights(highlighter)
         # EC: highlights + match are None
         if not highlighter.getCurrentMatch():
             return
 
-        # 1. Highlight first
+        # 1. Highlight current selection
         first_line,first_match = highlighter.getCurrentMatch()
         self.vim.request("nvim_buf_add_highlight",self.buffer,highlighter.ns,"SearchHighlight",first_line,first_match[0],first_match[1])
         # 2. Highlight rest
         for (l,match_range) in highlighter.list_of_highlights:
-            if l != first_line and match_range !=first_match:
+            if l != first_line or match_range !=first_match:
                 self.vim.request("nvim_buf_add_highlight",self.buffer,highlighter.ns,"SearchResult",l,match_range[0],match_range[1])
+    def clearHighlights(self,highlighter):
+        self.vim.request("nvim_buf_clear_namespace",self.buffer,highlighter.ns,0,-1)
+    def destroyWindowBuffer(self):
+        self.vim.request("nvim_buf_delete",self.buffer,{})
+
 
 
 ################ **** ##################
@@ -133,40 +146,71 @@ class Highlighter(object):
         self.ns = ns
 
         self.list_of_highlights = []
+        # TODO: combine current_match + idx into just an iterator/refactor incrementIndex
         self.current_match = None
+        self.idx = 0
         self.variable_to_print = None
-    def updateHighlights(self,list_of_highlights):
+    def update_highlighter(self,list_of_highlights):
         # EC: no highlight matches
         if not list_of_highlights:
             self.variable_to_print = None
-            self.list_of_highlights = list_of_highlights
+            self.list_of_highlights = []
             return
 
         # Case 1: No Previous Matches: Just make first selection current
         if not self.current_match:
             # 1. Creates current selection
             self.current_match = list_of_highlights[0]
+            self.idx = 0
         else:
         # Case 2: Need to track current selection vs updated matches
-            new_current_match = _findNewContainedInterval(list_of_highlights,self.current_match)
+            idx, new_current_match = _findNewContainedInterval(list_of_highlights,self.current_match)
             # Case 1:
             if new_current_match:
                 self.current_match = new_current_match
+                self.idx = idx
             else:
                 self.current_match = list_of_highlights[0]
+                self.idx = 0
 
         self.variable_to_print = self.current_match
         self.list_of_highlights = list_of_highlights
 
     def getCurrentMatch(self):
         return self.variable_to_print
+    def incrementIndex(self):
+        # EC: no highlights to increment from
+        if self.variable_to_print == None:
+            return
+
+        # TODO: move in circular buffer?
+        self.idx += 1
+        if self.idx == len(self.list_of_highlights):
+            self.idx = 0
+        
+        self.current_match = self.list_of_highlights[self.idx]
+        self.variable_to_print = self.current_match
+    def decrementIndex(self):
+        # EC: no highlights to increment from
+        if self.variable_to_print == None:
+            return
+
+        # TODO: move in circular buffer?
+        self.idx -= 1
+        if self.idx < 0:
+            self.idx = len(self.list_of_highlights) - 1
+        
+        self.current_match = self.list_of_highlights[self.idx]
+        self.variable_to_print = self.current_match
+
+
 
 def _findNewContainedInterval(list_of_highlights,current_match):
-    for match in list_of_highlights:
+    for idx,match in enumerate(list_of_highlights):
         # TODO: make this a method so usage is clearer
         if _isContainedIn(current_match,match):
-            return match
-    return None
+            return idx,match
+    return 0,None
 
 def _isContainedIn(current_match,bigger_match):
     if current_match[0] != bigger_match[0]:
@@ -214,6 +258,12 @@ def printCurrJumpList(wb_pair,num):
 
 
 # State Design Pattern to compare with Buffer Variable Implementation
+################ **THOUGHTS** ##################
+# While there is a lot of boilerplate, the implementation was easier to do
+# b/c 1) each state has exactly the variables it needs to consider
+# 2) state transitions are explicit rather than being encoded in variables/control flow
+# For correctness, I would probably implement this first and then reduce to the version used above
+
 # class HighlightState(object):
     # def update_empty_highlights(self):
         # DPrintf(self.getState()+ ": update_empty_highlights")
