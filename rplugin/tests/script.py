@@ -12,9 +12,9 @@ buf = nvim.current.buffer
 # # # some time later ...
 # # buf.clear_namespace(src)
 # nvim.command("silent split")
-# nvim.command("silent e JumpBuffer")
+# nvim.command("silent e FilterJump")
 # nvim.command("silent setlocal buftype=nofile")
-# nvim.command('silent setlocal filetype=JumpBuffer')
+# nvim.command('silent setlocal filetype=FilterJump')
 # nvim.current.window.height = 1
 # nvim.command("silent CocDisable")
 # nvim.command("startinsert")

@@ -14,19 +14,26 @@ class Jumper(object):
         self.j_window_buffer = None
 
         # Search Related
-        self.strip_set = vim.vars.get("set_of_strip_characters",[])
+        self.strip_set = vim.vars.get("filter_jump_strip_characters",['_'])
         # Highlight + Selection Related
         self.highlighter = None
         # Hotkeys
-        self.keymaps = {
-            "<C-n>": "JumpBufferNextMatch",
-            "<C-p>": "JumpBufferPrevMatch",
-            "<CR>": "JumpBufferSelect",
-            "<C-f>": "JumpBufferSelect",
-            "<C-c>" : "JumpBufferExit"
-        }
+        self.keymaps = {}
+        user_keymaps = vim.vars.get("filter_jump_keymaps",{})
+        if user_keymaps is not None:
+            for key,command in user_keymaps.items():
+                self.keymaps[key] = command
+        else:
+            self.keymaps = {
+                "<C-n>": "JumpBufferNextMatch",
+                "<C-p>": "JumpBufferPrevMatch",
+                "<CR>": "JumpBufferSelect",
+                "<C-f>": "JumpBufferSelect",
+                "<C-c>" : "JumpBufferExit"
+            }
 
-    @pynvim.command("JumpBufferOpen", nargs=0, sync=True)
+
+    @pynvim.command("FilterJumpOpen", nargs=0, sync=True)
     def open_jump_buffer(self):
         self.o_window_buffer = WindowBufferPair(
                 self.vim.current.window,
@@ -36,13 +43,16 @@ class Jumper(object):
         # set here so highlighter gets reset between every jump call
         self.highlighter = Highlighter(self.vim.request("nvim_create_namespace",""))
         self.vim.command("belowright split")
-        self.vim.command("e JumpBuffer")
+        self.vim.command("e FilterJump")
         self.vim.command("setlocal buftype=nofile")
-        self.vim.command('setlocal filetype=JumpBuffer')
-        for k in self.keymaps:
-            self.vim.command(f"inoremap <buffer> {k} <ESC>:{self.keymaps[k]}<CR>")
+        self.vim.command('setlocal filetype=FilterJump')
+        for key,command in self.keymaps.items():
+            self.vim.command(f"inoremap <buffer> {key} <ESC>:{command}<CR>")
         self.vim.current.window.height = 1
-        self.vim.command("CocDisable")
+        options = self.vim.vars.get("filter_jump_buffer_options")
+        if options is not None:
+            for buffer_specific_option in options:
+                self.vim.command(buffer_specific_option)
         self.j_window_buffer = WindowBufferPair(
                 self.vim.current.window,
                 self.vim.current.buffer,
@@ -51,9 +61,9 @@ class Jumper(object):
 
         # self.compressed_lines = None // maybe do optimization later
 
-    @pynvim.autocmd("TextChangedI", pattern='JumpBuffer', sync=True)
+    @pynvim.autocmd("TextChangedI", pattern='FilterJump', sync=True)
     def buffer_complete(self):
-        # 1. get current word in JumpBuffer
+        # 1. get current word in FilterJump
         # TODO: more than just a word
         c_word, filters = extractWordAndFilters(self.j_window_buffer.getCurrLine(),self.strip_set)
         if len(c_word.getString()) < 2:
@@ -76,25 +86,26 @@ class Jumper(object):
 
 
         self.o_window_buffer.drawHighlights(self.highlighter)
-    @pynvim.command("JumpBufferNextMatch",nargs=0,sync=True)
+    @pynvim.command("FilterJumpNextMatch",nargs=0,sync=True)
     def next_match(self):
         # 1. change highlighter struct
         self.highlighter.incrementIndex()
         # 2. redraw
         self.o_window_buffer.drawHighlights(self.highlighter)
         self.vim.command("startinsert!")
-    @pynvim.command("JumpBufferPrevMatch",nargs=0,sync=True)
+    @pynvim.command("FilterJumpPrevMatch",nargs=0,sync=True)
     def prev_match(self):
         self.highlighter.decrementIndex()
         self.o_window_buffer.drawHighlights(self.highlighter)
         self.vim.command("startinsert!")
-    @pynvim.command("JumpBufferSelect",nargs=0,sync=True)
+    @pynvim.command("FilterJumpSelect",nargs=0,sync=True)
     def select(self):
-        # NOTE: this needs to be called first to prevent vim from "scrolling" your view down
+        # NOTE: this needs to be called first to prevent vim from "scrolling" your view down + in case we call a vim command that doesn't allow you to pass in the window/buffer
         self.j_window_buffer.destroyWindowBuffer()
 
         self.o_window_buffer.setCursor(self.highlighter.getCurrentMatch())
         self.o_window_buffer.clearHighlights(self.highlighter)
-    @pynvim.command("JumpBufferExit",nargs=0,sync=True)
+    @pynvim.command("FilterJumpExit",nargs=0,sync=True)
     def exit(self):
         self.j_window_buffer.destroyWindowBuffer()
+        self.o_window_buffer.clearHighlights(self.highlighter)

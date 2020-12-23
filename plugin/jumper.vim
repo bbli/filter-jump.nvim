@@ -1,6 +1,7 @@
-nnoremap <silent> <Plug>(JumpBufferOpen) :JumpBufferOpen<Return>
-nmap <leader>jj <Plug>(JumpBufferOpen)
+nnoremap <silent> <Plug>(FilterJumpOpen) :FilterJumpOpen<Return>
 
-highlight SearchResult ctermbg=Green guibg=Green ctermfg=White guifg=White
-highlight SearchHighlight ctermbg=Red guibg=Red ctermfg=White guifg=White
+if !exists("g:filter_jump_highlight_groups")
+    highlight! link SearchCurrent Search
+    highlight! link SearchHighlights Visual
+endif
 

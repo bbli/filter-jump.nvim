@@ -26,13 +26,15 @@ class WindowBufferPair(object):
         return self.vim.request("nvim_win_get_cursor",self.window)
     def setCursor(self,match):
         """
-        Row is now 1 indexed
+        Note: Row + Column is now 1 indexed b/c we changed to excuting a direct vim command
         """
         if not match:
             return
         r = match[0]+1
-        c = match[1][0]
-        self.vim.request("nvim_win_set_cursor",self.window,(r,c))
+        c = match[1][0]+1
+        # self.vim.request("nvim_win_set_cursor",self.window,(r,c))
+        # execute "normal " . target_line . "G" . target_col . "|"
+        self.vim.request("nvim_exec","normal{}G{}| ".format(r,c),False)
     def getCurrLine(self):
         line_num,_ = self._getCurrCursorForced()
         result = self.vim.request("nvim_buf_get_lines",self.buffer,line_num-1,line_num,True)
@@ -43,7 +45,7 @@ class WindowBufferPair(object):
     def getLineRange(self):
         # cursor,_ = wb_pair._getCurrCursorForced() # line number is absolute
         abs_top = self._getLineFromWindowMotion("H")
-        abs_bottom = self._getLineFromWindowMotion("L") # number already accounts for resize due to JumpBuffer
+        abs_bottom = self._getLineFromWindowMotion("L") # number already accounts for resize due to FilterJump
 
         page_content = self.vim.call("getbufline",self.buffer,abs_top,abs_bottom)
         return page_content,VimTranslator(abs_top)
@@ -78,11 +80,11 @@ class WindowBufferPair(object):
 
         # 1. Highlight current selection
         first_line,first_match = highlighter.getCurrentMatch()
-        self.vim.request("nvim_buf_add_highlight",self.buffer,highlighter.ns,"SearchHighlight",first_line,first_match[0],first_match[1])
+        self.vim.request("nvim_buf_add_highlight",self.buffer,highlighter.ns,"SearchCurrent",first_line,first_match[0],first_match[1])
         # 2. Highlight rest
         for (l,match_range) in highlighter.list_of_highlights:
             if l != first_line or match_range !=first_match:
-                self.vim.request("nvim_buf_add_highlight",self.buffer,highlighter.ns,"SearchResult",l,match_range[0],match_range[1])
+                self.vim.request("nvim_buf_add_highlight",self.buffer,highlighter.ns,"SearchHighlights",l,match_range[0],match_range[1])
     def clearHighlights(self,highlighter):
         self.vim.request("nvim_buf_clear_namespace",self.buffer,highlighter.ns,0,-1)
     def destroyWindowBuffer(self):
