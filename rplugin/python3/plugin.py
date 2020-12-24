@@ -75,7 +75,7 @@ class Jumper(object):
     def buffer_complete(self):
         # 1. get current word in FilterJump
         c_word, filters = extractWordAndFilters(self.j_window_buffer.getCurrLine(),self.strip_set)
-        if len(c_word.getString()) < 1:
+        if len(c_word.getString()) < 2:
             self.o_window_buffer.clearHighlights(self.highlighter)
             return
         # 2. get whether look up or look down -> and then create the page_content

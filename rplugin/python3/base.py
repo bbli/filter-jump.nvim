@@ -219,6 +219,7 @@ class Highlighter(object):
         self.variable_to_print = self.current_l_match
 
 ################ **Helpers** ##################
+# @debug
 def _findClosestInverval(list_of_highlights,current_l_match):
     min_dis = _calcManDistance(list_of_highlights[0],current_l_match)
     min_l_match = list_of_highlights[0]
@@ -229,7 +230,7 @@ def _findClosestInverval(list_of_highlights,current_l_match):
         if dis < min_dis:
             min_dis = dis
             min_l_match = l_match
-            min_idx = idx
+            min_idx = idx+1
     return min_idx,min_l_match
 
 def _calcManDistance(l_match1,l_match2):
