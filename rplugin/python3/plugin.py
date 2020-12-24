@@ -32,9 +32,19 @@ class Jumper(object):
                 "<C-c>" : "JumpBufferExit"
             }
 
-
-    @pynvim.command("FilterJumpOpen", nargs=0, sync=True)
-    def open_jump_buffer(self):
+    @pynvim.command("FilterJumpLineForward", nargs=0, sync=True)
+    def open_jump_buffer_forward(self):
+        self.type = "Forward"
+        self._open_jump_buffer()
+    @pynvim.command("FilterJumpLineBackward", nargs = 0, sync = True)
+    def open_jump_buffer_backward(self):
+        self.type = "Backward"
+        self._open_jump_buffer()
+    @pynvim.command("FilterJump", nargs=0, sync=True)
+    def open_filter_jump(self):
+        self.type = "Regular"
+        self._open_jump_buffer()
+    def _open_jump_buffer(self):
         self.o_window_buffer = WindowBufferPair(
                 self.vim.current.window,
                 self.vim.current.buffer,
@@ -64,15 +74,15 @@ class Jumper(object):
     @pynvim.autocmd("TextChangedI", pattern='FilterJump', sync=True)
     def buffer_complete(self):
         # 1. get current word in FilterJump
-        # TODO: more than just a word
         c_word, filters = extractWordAndFilters(self.j_window_buffer.getCurrLine(),self.strip_set)
         if len(c_word.getString()) < 1:
             self.o_window_buffer.clearHighlights(self.highlighter)
             return
         # 2. get whether look up or look down -> and then create the page_content
-        page_content, vim_translator = self.o_window_buffer.getLineRange()
+        page_content, vim_translator = self.o_window_buffer.getLineRange(self.type)
         array_of_c_strings = CompressedString.createArrayOfCompressedStrings(page_content,self.strip_set)
 
+        # 3. Backend Matching
         new_highlights = []
         for rel_line,c_string in enumerate(array_of_c_strings):
             # TODO/Note: matches is still in object form rather than being a range
@@ -85,7 +95,6 @@ class Jumper(object):
 
             new_highlights.extend(lm_pairs)
         self.highlighter.update_highlighter(new_highlights)
-
 
         self.o_window_buffer.drawHighlights(self.highlighter)
     @pynvim.command("FilterJumpNextMatch",nargs=0,sync=True)

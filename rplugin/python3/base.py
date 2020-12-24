@@ -43,15 +43,33 @@ class WindowBufferPair(object):
         # DPrintf("Vim Current Line: {}".format(self.vim.current.line))
         # assert result[0] == self.vim.current.line
         return result[0]
-    def getLineRange(self):
-        # cursor,_ = wb_pair._getCurrCursorForced() # line number is absolute
-        abs_top = self._getLineFromWindowMotion("H")
-        abs_bottom = self._getLineFromWindowMotion("L") # number already accounts for resize due to FilterJump
+    @debug
+    def getbufline(self,cursor_x,cursor_y):
+        return self.vim.call("getbufline",self.buffer,cursor_x,cursor_y)
 
-        page_content = self.vim.call("getbufline",self.buffer,abs_top,abs_bottom)
-        return page_content,VimTranslator(abs_top)
+    def getLineRange(self,type):
+        if type == "Regular":
+            abs_top = self._getLineFromWindowMotion("H")
+            abs_bottom = self._getLineFromWindowMotion("L") # number already accounts for resize due to FilterJump
+            page_content = self.vim.call("getbufline",self.buffer,abs_top,abs_bottom)
+            return page_content,VimTranslator(abs_top)
+        elif type == "Forward":
+            cursor_x,cursor_y = self._getCurrCursorForced()
+            # page_content = self.vim.call("getbufline",self.buffer,cursor_x,cursor_y)
+            page_content = self.getbufline(cursor_x,cursor_y)
+            # page_content = _onlyKeepCharactersInFront(page_content,cursor_y)
+            return page_content,VimTranslator(cursor_x)
+        else:
+            if type != "Backward":
+                raise Exception
+
+            cursor_x,cursor_y = self._getCurrCursorForced()
+            # page_content = self.vim.call("getbufline",self.buffer,cursor_x,cursor_y)
+            page_content = self.getbufline(cursor_x,cursor_y)
+            # page_content = _onlyKeepCharactersInBack(page_content,cursor_y)
+            return page_content,VimTranslator(cursor_x)
+
     def _getLineFromWindowMotion(self, motion):
-        # check jumplist doesn't get added to
         curr_cursor = self._getCurrCursorForced()
 
         # switch windows and make the move
@@ -90,7 +108,6 @@ class WindowBufferPair(object):
         self.vim.request("nvim_buf_clear_namespace",self.buffer,highlighter.ns,0,-1)
     def destroyWindowBuffer(self):
         self.vim.request("nvim_buf_delete",self.buffer,{})
-
 
 
 ################ **** ##################
@@ -201,6 +218,7 @@ class Highlighter(object):
         self.current_l_match = self.list_of_highlights[self.idx]
         self.variable_to_print = self.current_l_match
 
+################ **Helpers** ##################
 def _findClosestInverval(list_of_highlights,current_l_match):
     min_dis = _calcManDistance(list_of_highlights[0],current_l_match)
     min_l_match = list_of_highlights[0]
@@ -218,8 +236,7 @@ def _calcManDistance(l_match1,l_match2):
     delta_x = l_match1[0] - l_match2[0]
     delra_y = l_match1[1][0] - l_match2[1][0]
     return abs(delta_x+delra_y)
-
-
+################ **** ##################
 def _findNewContainedInterval(list_of_highlights,current_l_match):
     for idx,l_match in enumerate(list_of_highlights):
         # TODO: make this a method so usage is clearer
@@ -237,7 +254,7 @@ def _isContainedIn(current_l_match,bigger_l_match):
         return True
     else:
         return False
-################ **Helpers** ##################
+################ **** ##################
 def extractWordAndFilters(input,strip_set):
     input = input.split(' ')
 
@@ -250,7 +267,8 @@ def extractWordAndFilters(input,strip_set):
         c_filters = []
 
     return c_word,c_filters
-@debug
+################ **** ##################
+# @debug
 def findMatches(c_string,c_word,list_of_c_filters=[]):
     """
     Note: match.end()  returns 1 over, just like C++
@@ -262,86 +280,26 @@ def findMatches(c_string,c_word,list_of_c_filters=[]):
             return []
     return matches
 
-@debug
-def escape(word):
-    return re.escape(word)
+# @debug
+# def escape(word):
+    # return re.escape(word)
 
 def _findCWordInCString(c_word,c_string):
-    c_word = escape(c_word.getString())
+    c_word = re.escape(c_word.getString())
     return [ x for x in re.finditer(c_word,c_string.getString())]
+################ **** ##################
+def _onlyKeepCharactersInFront(page_content,curr_col):
+    page_content = page_content[0]
+    # EC
+    if len(page_content) < 1:
+        return [page_content]
 
-def printCurrJumpList(wb_pair,num):
-    jump_list1 = wb_pair.vim.call("getjumplist",wb_pair.window)
-    # win_info = wb_pair.vim.call("getwininfo",wb_pair.window)
-    # DPrintf("Window Info: "+ str(win_info))
-    # DPrintf("\n")
-    DPrintf("JumpList" + str(num)+": "+ str(jump_list1))
+    return [page_content[curr_col:]]
 
+def _onlyKeepCharactersInBack(page_content,curr_col):
+    page_content = page_content[0]
+    # EC
+    if len(page_content) < 1:
+        return [page_content]
 
-# State Design Pattern to compare with Buffer Variable Implementation
-################ **THOUGHTS** ##################
-# While there is a lot of boilerplate, the implementation was easier to do
-# b/c 1) each state has exactly the variables it needs to consider
-# 2) state transitions are explicit rather than being encoded in variables/control flow
-# For correctness, I would probably implement this first and then reduce to the version used above
-
-# class HighlightState(object):
-    # def update_empty_highlights(self):
-        # DPrintf(self.getState()+ ": update_empty_highlights")
-        # return self._update_empty_highlights()
-    # def update_highlights(self,highlights):
-        # DPrintf(self.getState()+ ": update highlights")
-        # return self._update_highlights(highlights)
-    # def _update_empty_highlights(self):
-        # raise NotImplementedError
-    # def _update_highlights(self,highlights):
-        # raise NotImplementedError
-    # def getCurrentMatch(self):
-        # raise NotImplementedError
-    # def getState(self):
-        # raise NotImplementedError
-
-# class NoMatch(HighlightState):
-    # def __init__(self):
-        # pass
-    # def _update_empty_highlights(self):
-        # return self
-    # def _update_highlights(self,highlights):
-        # current_match = highlights[0]
-        # return HasMatch(current_match)
-    # def getCurrentMatch(self):
-        # return None
-    # def getState(self):
-        # return "NoMatch"
-
-# class HasMatch(HighlightState):
-    # def __init__(self,current_match):
-        # self.current_match = current_match
-    # def _update_empty_highlights(self):
-        # return SavedMatch(self.current_match)
-    # def _update_highlights(self,highlights):
-        # new_current_match = _findNewContainedInterval(highlights,self.current_match)
-        # if new_current_match:
-            # return HasMatch(new_current_match)
-        # else:
-            # return HasMatch(highlights[0])
-    # def getCurrentMatch(self):
-        # return self.current_match
-    # def getState(self):
-        # return "HasMatch"
-
-# class SavedMatch(HighlightState):
-    # def __init__(self,saved_match):
-        # self.saved_match = saved_match
-    # def _update_empty_highlights(self):
-        # return self
-    # def _update_highlights(self,highlights):
-        # new_current_match = _findNewContainedInterval(highlights,self.saved_match)
-        # if new_current_match:
-            # return HasMatch(new_current_match)
-        # else:
-            # return HasMatch(highlights[0])
-    # def getCurrentMatch(self):
-        # return None
-    # def getState(self):
-        # return "HasMatch"
+    return [page_content[:curr_col]]
