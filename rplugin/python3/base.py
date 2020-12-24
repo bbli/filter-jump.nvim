@@ -56,8 +56,8 @@ class WindowBufferPair(object):
             page_content = self.getCurrLine()
             row, col = self._getCurrCursorForced()
 
-            page_content = _onlyKeepCharactersInFront(page_content, col)
-            return page_content,VimTranslator(row-1,col)
+            page_content = _onlyKeepCharactersInFront(page_content, col+1)
+            return page_content,VimTranslator(row-1,col+1)
         else:
             if type != "Backward":
                 raise Exception
@@ -113,7 +113,7 @@ class WindowBufferPair(object):
 class VimTranslator(object):
     def __init__(self,abs_top,x_offset = 0):
         """
-        Note: This function assumes 0 indexed positions
+        Note: This object assumes 0 indexed positions
         """
         self.abs_top = abs_top
         self.x_offset = x_offset
@@ -150,9 +150,6 @@ class CompressedString(object):
         return [self._expand(match.start(),match.end()) for match in matches]
     @staticmethod
     def createArrayOfCompressedStrings(page_content,set_of_strip_characters):
-        """
-        Note: compressed strings will also be lowercased
-        """
         compressed_range = []
         for string in page_content:
             compressed_range.append(CompressedString(string,set_of_strip_characters))
@@ -332,7 +329,7 @@ def _findCWordInCString(c_word,c_string):
     c_word = re.escape(c_word.getString())
     return [ x for x in re.finditer(c_word,c_string.getString())]
 ################ **** ##################
-@debug
+# @debug
 def _onlyKeepCharactersInFront(curr_line,curr_col):
     # EC
     if len(curr_line) < 1:
@@ -340,7 +337,7 @@ def _onlyKeepCharactersInFront(curr_line,curr_col):
 
     return [curr_line[curr_col:]]
 
-@debug
+# @debug
 def _onlyKeepCharactersInBack(curr_line,curr_col):
     # EC
     if len(curr_line) < 1:

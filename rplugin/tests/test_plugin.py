@@ -25,14 +25,14 @@ def one_line_c_string():
 
 def test_createRangeOfCompressedStrings(one_line_c_string):
     string = one_line_c_string.getString()
-    assert 'apple head23 ShardIdx)'.lower() == string
+    assert 'apple head23 ShardIdx)'.lower() == string.lower()
     
 
 def test_findMatches(one_line_c_string):
-    c_word = CompressedString('shard',['_'])
+    c_word = CompressedString('Shard',['_'])
     match = findMatches(one_line_c_string,c_word)[0]
-    assert one_line_c_string.getString()[match.start()] == 's'
-    assert one_line_c_string.getString()[match.end()] == 'i'
+    assert one_line_c_string.getString()[match.start()] == 'S'
+    assert one_line_c_string.getString()[match.end()] == 'I'
     assert match.start() == 13
     assert match.end() == 18
 
@@ -55,7 +55,7 @@ def textFile():
         return f.readlines()
 
 def test_translateMatches(textFile):
-    line_translator = VimTranslator(1)
+    line_translator = VimTranslator(0)
     c_word = CompressedString('plugin',['_'])
     array_of_c_strings = CompressedString.createArrayOfCompressedStrings(textFile,['_']) 
 

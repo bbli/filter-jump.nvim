@@ -127,3 +127,6 @@ class Jumper(object):
     def exit(self):
         self.j_window_buffer.destroyWindowBuffer()
         self.o_window_buffer.clearHighlights(self.highlighter)
+    @pynvim.command("FilterJumpVimExit",nargs=0,sync=True)
+    def vim_exit(self):
+        self.o_window_buffer.clearHighlights(self.highlighter)
