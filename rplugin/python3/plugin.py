@@ -101,7 +101,7 @@ class Jumper(object):
             lm_pairs = vim_translator.translateMatches(rel_line,expanded_matches)
 
             new_highlights.extend(lm_pairs)
-        self.highlighter.update_highlighter(new_highlights)
+        self.highlighter.update_highlighter(new_highlights,self.type)
 
         self.o_window_buffer.drawHighlights(self.highlighter)
     @pynvim.command("FilterJumpNextMatch",nargs=0,sync=True)
@@ -118,7 +118,7 @@ class Jumper(object):
         self.vim.command("startinsert!")
     @pynvim.command("FilterJumpSelect",nargs=0,sync=True)
     def select(self):
-        # NOTE: this needs to be called first to prevent vim from "scrolling" your view down + in case we call a vim command that doesn't allow you to pass in the window/buffer
+        # NOTE: below method needs to be called first to prevent vim from "scrolling" your view down + in case we call a vim command that doesn't allow you to pass in the window/buffer afterwards
         self.j_window_buffer.destroyWindowBuffer()
 
         self.o_window_buffer.setCursor(self.highlighter.getCurrentMatch())

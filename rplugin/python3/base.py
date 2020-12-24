@@ -36,8 +36,6 @@ class WindowBufferPair(object):
             return
         r = l_match[0]+1
         c = l_match[1][0]+1
-        # self.vim.request("nvim_win_set_cursor",self.window,(r,c))
-        # execute "normal " . target_line . "G" . target_col . "|"
         self.vim.request("nvim_exec","normal{}G{}| ".format(r,c),False)
     def getCurrLine(self):
         line_num,_ = self._getCurrCursorForced()
@@ -51,6 +49,8 @@ class WindowBufferPair(object):
             abs_top = self._getLineFromWindowMotion("H")
             abs_bottom = self._getLineFromWindowMotion("L") # number already accounts for resize due to FilterJump
             page_content = self.vim.call("getbufline",self.buffer,abs_top,abs_bottom)
+            # My personal preference is to ignore capital letters when making big jumps but keep it for the one line cases below
+            page_content = [s.lower() for s in page_content]
             return page_content,VimTranslator(abs_top-1)#Since vim calls are 1 indexed
         elif type == "Forward":
             page_content = self.getCurrLine()
@@ -72,12 +72,12 @@ class WindowBufferPair(object):
     def _getLineFromWindowMotion(self, motion):
         curr_cursor = self._getCurrCursorForced()
 
-        # switch windows and make the move
+        # 1.switch windows and make the move
         self.vim.call("win_gotoid",self.window) # now that we are back, nothing happens
         self.vim.command("keepjumps normal! " + motion) # w/o keep jumps, JumpList will add curr location to jumplist
         new_row,_ = self._getCurrCursorForced()
 
-        # move back
+        # 2.move back
         self.vim.call("cursor",curr_cursor[0],curr_cursor[1]) # Note: does not add to jumplist
         ## testing code
         # x,y = wb_pair._getCurrCursorForced()
@@ -109,7 +109,6 @@ class WindowBufferPair(object):
     def destroyWindowBuffer(self):
         self.vim.request("nvim_buf_delete",self.buffer,{})
 
-
 ################ **** ##################
 class VimTranslator(object):
     def __init__(self,abs_top,x_offset = 0):
@@ -125,7 +124,6 @@ class VimTranslator(object):
     # @debug
     def translateMatches(self,rel_line,list_of_ranges):
         return [(self._translate_y(rel_line),self._translate_x(range)) for range in list_of_ranges]
-
 
 ################ **** ##################
 class CompressedString(object):
@@ -170,7 +168,7 @@ class Highlighter(object):
         self.current_l_match = None
         self.idx = 0
         self.variable_to_print = None
-    def update_highlighter(self,list_of_highlights):
+    def update_highlighter(self,list_of_highlights,type):
         # EC: no highlight matches
         if not list_of_highlights:
             self.variable_to_print = None
@@ -178,6 +176,33 @@ class Highlighter(object):
             return
 
         # Case 1: No Previous Matches: Just make first selection current
+        if type == "Forward":
+            self.update_highlighter_forward(list_of_highlights)
+        elif type == "Backward":
+            self.update_highlighter_backward(list_of_highlights)
+        else:
+            self.update_highlighter_regular(list_of_highlights)
+
+        self.variable_to_print = self.current_l_match
+        self.list_of_highlights = list_of_highlights
+    def update_highlighter_forward(self,list_of_highlights):
+        if not self.current_l_match:
+            self.current_l_match = list_of_highlights[0]
+            self.idx = 0
+        else:
+            idx, new_current_l_match = _findFirstGreaterThanOrEqualToMatch(list_of_highlights,self.current_l_match)
+            self.current_l_match = new_current_l_match
+            self.idx = idx
+    def update_highlighter_backward(self,list_of_highlights):
+        if not self.current_l_match:
+            self.idx = len(list_of_highlights) -1
+            self.current_l_match = list_of_highlights[self.idx]
+        else:
+            idx, new_current_l_match = _findFirstLessThanOrEqualToMatch(list_of_highlights,self.current_l_match)
+            self.idx = idx
+            self.current_l_match = new_current_l_match
+
+    def update_highlighter_regular(self,list_of_highlights):
         if not self.current_l_match:
             # 1. Creates current selection
             self.current_l_match = list_of_highlights[0]
@@ -187,9 +212,6 @@ class Highlighter(object):
             idx, new_current_l_match = _findClosestInverval(list_of_highlights,self.current_l_match)
             self.current_l_match = new_current_l_match
             self.idx = idx
-
-        self.variable_to_print = self.current_l_match
-        self.list_of_highlights = list_of_highlights
 
     def getCurrentMatch(self):
         return self.variable_to_print
@@ -238,9 +260,30 @@ def _calcManDistance(l_match1,l_match2):
     delra_y = l_match1[1][0] - l_match2[1][0]
     return abs(delta_x+delra_y)
 ################ **** ##################
+def _findFirstGreaterThanOrEqualToMatch(list_of_highlights,current_l_match):
+    current_match = current_l_match[1]
+    for idx,l_match in enumerate(list_of_highlights):
+        match = l_match[1]
+        if match[0] >= current_match[0]:
+            return idx, l_match
+    return 0,list_of_highlights[0]
+
+def _findFirstLessThanOrEqualToMatch(list_of_highlights,current_l_match):
+    end = len(list_of_highlights) -1
+    current_match = current_l_match[1]
+    idx_so_far = end
+    l_match_so_far = list_of_highlights[end]
+    for idx,l_match in enumerate(list_of_highlights):
+        match = l_match[1]
+        if match[0] <= current_match[0]:
+            idx_so_far = idx
+            l_match_so_far = l_match
+    return idx_so_far,l_match_so_far
+    
+################ **** ##################
 def _findNewContainedInterval(list_of_highlights,current_l_match):
     for idx,l_match in enumerate(list_of_highlights):
-        # TODO: make this a method so usage is clearer
+        # TODO: make this a method/custom data type so usage is clearer
         if _isContainedIn(current_l_match,l_match):
             return idx,l_match
     return 0,None
