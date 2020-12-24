@@ -23,6 +23,9 @@ class WindowBufferPair(object):
         # for calling vim
         self.vim = vim
     def _getCurrCursorForced(self):
+        """
+        Note: This will be 1 indexed in x and 0 indexed in y
+        """
         return self.vim.request("nvim_win_get_cursor",self.window)
     def setCursor(self,l_match):
         """
@@ -43,32 +46,29 @@ class WindowBufferPair(object):
         # DPrintf("Vim Current Line: {}".format(self.vim.current.line))
         # assert result[0] == self.vim.current.line
         return result[0]
-    @debug
-    def getbufline(self,cursor_x,cursor_y):
-        return self.vim.call("getbufline",self.buffer,cursor_x,cursor_y)
-
     def getLineRange(self,type):
         if type == "Regular":
             abs_top = self._getLineFromWindowMotion("H")
             abs_bottom = self._getLineFromWindowMotion("L") # number already accounts for resize due to FilterJump
             page_content = self.vim.call("getbufline",self.buffer,abs_top,abs_bottom)
-            return page_content,VimTranslator(abs_top)
+            return page_content,VimTranslator(abs_top-1)#Since vim calls are 1 indexed
         elif type == "Forward":
-            cursor_x,cursor_y = self._getCurrCursorForced()
-            # page_content = self.vim.call("getbufline",self.buffer,cursor_x,cursor_y)
-            page_content = self.getbufline(cursor_x,cursor_y)
-            # page_content = _onlyKeepCharactersInFront(page_content,cursor_y)
-            return page_content,VimTranslator(cursor_x)
+            page_content = self.getCurrLine()
+            row, col = self._getCurrCursorForced()
+
+            page_content = _onlyKeepCharactersInFront(page_content, col)
+            return page_content,VimTranslator(row-1,col)
         else:
             if type != "Backward":
                 raise Exception
 
-            cursor_x,cursor_y = self._getCurrCursorForced()
-            # page_content = self.vim.call("getbufline",self.buffer,cursor_x,cursor_y)
-            page_content = self.getbufline(cursor_x,cursor_y)
-            # page_content = _onlyKeepCharactersInBack(page_content,cursor_y)
-            return page_content,VimTranslator(cursor_x)
+            page_content = self.getCurrLine()
+            row, col = self._getCurrCursorForced()
 
+            page_content = _onlyKeepCharactersInBack(page_content,col)
+            return page_content,VimTranslator(row-1,0) # col doesn't need to be offset here
+
+    # @debug
     def _getLineFromWindowMotion(self, motion):
         curr_cursor = self._getCurrCursorForced()
 
@@ -112,12 +112,12 @@ class WindowBufferPair(object):
 
 ################ **** ##################
 class VimTranslator(object):
-    def __init__(self,abs_top):
+    def __init__(self,abs_top,x_offset = 0):
         """
-        Adjusting for frontend being 1 indexed while add_highlight being 0 indexed
+        Note: This function assumes 0 indexed positions
         """
-        self.abs_top = abs_top - 1
-        self.x_offset = 0
+        self.abs_top = abs_top
+        self.x_offset = x_offset
     def _translate_y(self,rel_line):
         return self.abs_top + rel_line
     def _translate_x(self,range):
@@ -132,7 +132,7 @@ class CompressedString(object):
     def __init__(self,string,set_of_strip_characters=['_']):
         new_string = []
         index_map = []
-        for i,char in enumerate(string.lower()):
+        for i,char in enumerate(string):
             if char not in set_of_strip_characters:
                 new_string.append(char)
                 index_map.append(i)
@@ -289,18 +289,18 @@ def _findCWordInCString(c_word,c_string):
     c_word = re.escape(c_word.getString())
     return [ x for x in re.finditer(c_word,c_string.getString())]
 ################ **** ##################
-def _onlyKeepCharactersInFront(page_content,curr_col):
-    page_content = page_content[0]
+@debug
+def _onlyKeepCharactersInFront(curr_line,curr_col):
     # EC
-    if len(page_content) < 1:
-        return [page_content]
+    if len(curr_line) < 1:
+        return [curr_line]
 
-    return [page_content[curr_col:]]
+    return [curr_line[curr_col:]]
 
-def _onlyKeepCharactersInBack(page_content,curr_col):
-    page_content = page_content[0]
+@debug
+def _onlyKeepCharactersInBack(curr_line,curr_col):
     # EC
-    if len(page_content) < 1:
-        return [page_content]
+    if len(curr_line) < 1:
+        return [curr_line]
 
-    return [page_content[:curr_col]]
+    return [curr_line[:curr_col]]

@@ -71,11 +71,18 @@ class Jumper(object):
 
         # self.compressed_lines = None // maybe do optimization later
 
+    @property
+    def min_search_length_based_on_type(self):
+        if self.type == "Regular":
+            return 2
+        else:
+            return 1
+
     @pynvim.autocmd("TextChangedI", pattern='FilterJump', sync=True)
     def buffer_complete(self):
         # 1. get current word in FilterJump
         c_word, filters = extractWordAndFilters(self.j_window_buffer.getCurrLine(),self.strip_set)
-        if len(c_word.getString()) < 2:
+        if len(c_word.getString()) < self.min_search_length_based_on_type:
             self.o_window_buffer.clearHighlights(self.highlighter)
             return
         # 2. get whether look up or look down -> and then create the page_content
