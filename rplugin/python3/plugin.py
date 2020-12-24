@@ -66,7 +66,7 @@ class Jumper(object):
         # 1. get current word in FilterJump
         # TODO: more than just a word
         c_word, filters = extractWordAndFilters(self.j_window_buffer.getCurrLine(),self.strip_set)
-        if len(c_word.getString()) < 2:
+        if len(c_word.getString()) < 1:
             self.o_window_buffer.clearHighlights(self.highlighter)
             return
         # 2. get whether look up or look down -> and then create the page_content
@@ -75,6 +75,8 @@ class Jumper(object):
 
         new_highlights = []
         for rel_line,c_string in enumerate(array_of_c_strings):
+            # TODO/Note: matches is still in object form rather than being a range
+            # like it is in the rest of this pipeline/other functions in this codebase assume the range form, so naming this "matches" is sorta bad
             matches = findMatches(c_string,c_word,filters)
             if not matches:
                 continue

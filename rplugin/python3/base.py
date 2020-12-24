@@ -24,14 +24,15 @@ class WindowBufferPair(object):
         self.vim = vim
     def _getCurrCursorForced(self):
         return self.vim.request("nvim_win_get_cursor",self.window)
-    def setCursor(self,match):
+    def setCursor(self,l_match):
         """
         Note: Row + Column is now 1 indexed b/c we changed to excuting a direct vim command
         """
-        if not match:
+        #EC: we pressed enter when there was no match. In which case, just go back w/o moving the cursor
+        if not l_match:
             return
-        r = match[0]+1
-        c = match[1][0]+1
+        r = l_match[0]+1
+        c = l_match[1][0]+1
         # self.vim.request("nvim_win_set_cursor",self.window,(r,c))
         # execute "normal " . target_line . "G" . target_col . "|"
         self.vim.request("nvim_exec","normal{}G{}| ".format(r,c),False)
@@ -82,9 +83,9 @@ class WindowBufferPair(object):
         first_line,first_match = highlighter.getCurrentMatch()
         self.vim.request("nvim_buf_add_highlight",self.buffer,highlighter.ns,"SearchCurrent",first_line,first_match[0],first_match[1])
         # 2. Highlight rest
-        for (l,match_range) in highlighter.list_of_highlights:
-            if l != first_line or match_range !=first_match:
-                self.vim.request("nvim_buf_add_highlight",self.buffer,highlighter.ns,"SearchHighlights",l,match_range[0],match_range[1])
+        for (l,match) in highlighter.list_of_highlights:
+            if l != first_line or match !=first_match:
+                self.vim.request("nvim_buf_add_highlight",self.buffer,highlighter.ns,"SearchHighlights",l,match[0],match[1])
     def clearHighlights(self,highlighter):
         self.vim.request("nvim_buf_clear_namespace",self.buffer,highlighter.ns,0,-1)
     def destroyWindowBuffer(self):
@@ -149,7 +150,7 @@ class Highlighter(object):
 
         self.list_of_highlights = []
         # TODO: combine current_match + idx into just an iterator/refactor incrementIndex
-        self.current_match = None
+        self.current_l_match = None
         self.idx = 0
         self.variable_to_print = None
     def update_highlighter(self,list_of_highlights):
@@ -160,22 +161,17 @@ class Highlighter(object):
             return
 
         # Case 1: No Previous Matches: Just make first selection current
-        if not self.current_match:
+        if not self.current_l_match:
             # 1. Creates current selection
-            self.current_match = list_of_highlights[0]
+            self.current_l_match = list_of_highlights[0]
             self.idx = 0
         else:
         # Case 2: Need to track current selection vs updated matches
-            idx, new_current_match = _findNewContainedInterval(list_of_highlights,self.current_match)
-            # Case 1:
-            if new_current_match:
-                self.current_match = new_current_match
-                self.idx = idx
-            else:
-                self.current_match = list_of_highlights[0]
-                self.idx = 0
+            idx, new_current_l_match = _findClosestInverval(list_of_highlights,self.current_l_match)
+            self.current_l_match = new_current_l_match
+            self.idx = idx
 
-        self.variable_to_print = self.current_match
+        self.variable_to_print = self.current_l_match
         self.list_of_highlights = list_of_highlights
 
     def getCurrentMatch(self):
@@ -190,8 +186,8 @@ class Highlighter(object):
         if self.idx == len(self.list_of_highlights):
             self.idx = 0
         
-        self.current_match = self.list_of_highlights[self.idx]
-        self.variable_to_print = self.current_match
+        self.current_l_match = self.list_of_highlights[self.idx]
+        self.variable_to_print = self.current_l_match
     def decrementIndex(self):
         # EC: no highlights to increment from
         if self.variable_to_print == None:
@@ -202,24 +198,41 @@ class Highlighter(object):
         if self.idx < 0:
             self.idx = len(self.list_of_highlights) - 1
         
-        self.current_match = self.list_of_highlights[self.idx]
-        self.variable_to_print = self.current_match
+        self.current_l_match = self.list_of_highlights[self.idx]
+        self.variable_to_print = self.current_l_match
+
+def _findClosestInverval(list_of_highlights,current_l_match):
+    min_dis = _calcManDistance(list_of_highlights[0],current_l_match)
+    min_l_match = list_of_highlights[0]
+    min_idx = 0
+    for idx, l_match in enumerate(list_of_highlights[1:]):
+        #TODO: early exit if distances start to increase
+        dis = _calcManDistance(l_match,current_l_match)
+        if dis < min_dis:
+            min_dis = dis
+            min_l_match = l_match
+            min_idx = idx
+    return min_idx,min_l_match
+
+def _calcManDistance(l_match1,l_match2):
+    delta_x = l_match1[0] - l_match2[0]
+    delra_y = l_match1[1][0] - l_match2[1][0]
+    return abs(delta_x+delra_y)
 
 
-
-def _findNewContainedInterval(list_of_highlights,current_match):
-    for idx,match in enumerate(list_of_highlights):
+def _findNewContainedInterval(list_of_highlights,current_l_match):
+    for idx,l_match in enumerate(list_of_highlights):
         # TODO: make this a method so usage is clearer
-        if _isContainedIn(current_match,match):
-            return idx,match
+        if _isContainedIn(current_l_match,l_match):
+            return idx,l_match
     return 0,None
 
-def _isContainedIn(current_match,bigger_match):
-    if current_match[0] != bigger_match[0]:
+def _isContainedIn(current_l_match,bigger_l_match):
+    if current_l_match[0] != bigger_l_match[0]:
         return False
 
-    smaller_range = current_match[1]
-    bigger_range = bigger_match[1]
+    smaller_range = current_l_match[1]
+    bigger_range = bigger_l_match[1]
     if bigger_range[0] <= smaller_range[0] and smaller_range[1] <= bigger_range[1]:
         return True
     else:
@@ -237,6 +250,7 @@ def extractWordAndFilters(input,strip_set):
         c_filters = []
 
     return c_word,c_filters
+@debug
 def findMatches(c_string,c_word,list_of_c_filters=[]):
     """
     Note: match.end()  returns 1 over, just like C++
@@ -248,8 +262,13 @@ def findMatches(c_string,c_word,list_of_c_filters=[]):
             return []
     return matches
 
+@debug
+def escape(word):
+    return re.escape(word)
+
 def _findCWordInCString(c_word,c_string):
-    return [ x for x in re.finditer(c_word.getString(),c_string.getString())]
+    c_word = escape(c_word.getString())
+    return [ x for x in re.finditer(c_word,c_string.getString())]
 
 def printCurrJumpList(wb_pair,num):
     jump_list1 = wb_pair.vim.call("getjumplist",wb_pair.window)

@@ -23,14 +23,14 @@ class Jumper(object):
         self.o_window_buffer_pair = None
         self.j_window_buffer_pair = None
         self.type = None
-    @pynvim.command("OpenJumpBufferUp", nargs=0, sync=True)
+    @pynvim.command("OpenFilterJumpUp", nargs=0, sync=True)
     def open_jump_buffer(self):
         self.type = "Up"
         self.o_window_buffer_pair = WindowBufferPair(self.vim.current.window,self.vim.current.buffer)
         self.vim.command("split")
-        self.vim.command("e JumpBuffer")
+        self.vim.command("e FilterJump")
         self.vim.command("setlocal buftype=nofile")
-        self.vim.command('setlocal filetype=JumpBuffer')
+        self.vim.command('setlocal filetype=FilterJump')
         self.vim.current.window.height = 1
         self.vim.command("CocDisable")
         self.j_window_buffer_pair = WindowBufferPair(self.vim.current.window,self.vim.current.buffer)

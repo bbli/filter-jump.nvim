@@ -20,12 +20,12 @@ def multiple_cstrings():
 
 @pytest.fixture
 def one_line_c_string():
-    return CompressedString('ap___ple head_23 ShardIdx', ['_'])
+    return CompressedString('ap___ple head_23 ShardIdx)', ['_'])
 
 
 def test_createRangeOfCompressedStrings(one_line_c_string):
     string = one_line_c_string.getString()
-    assert 'apple head23 ShardIdx'.lower() == string
+    assert 'apple head23 ShardIdx)'.lower() == string
     
 
 def test_findMatches(one_line_c_string):
@@ -51,7 +51,7 @@ def test_expandMatches(one_line_c_string):
 
 @pytest.fixture
 def textFile():
-    with open('test.txt','r') as f:
+    with open('test.py','r') as f:
         return f.readlines()
 
 def test_translateMatches(textFile):
@@ -66,12 +66,11 @@ def test_translateMatches(textFile):
             continue
         # DPrintf("c_string = {}".format(c_string.getString()))
         # DPrintf("Output = {},{}".format(matches[0].start(),matches[0].end()))
-        # Q: make both of these methods?
         expanded_matches = c_string.expandMatches(matches) 
         lm_pairs = line_translator.translateMatches(rel_line,expanded_matches)
         list_of_highlights.extend(lm_pairs)
         break
-    assert list_of_highlights[0] == (11,(10,16))
+    assert list_of_highlights[0] == (18,(8,14))
 
 def test_findMatches_filterNoResults(one_line_c_string):
     c_word = CompressedString('apple',['_'])
@@ -94,3 +93,11 @@ def test_findMatches_filterTwoDownToOneResult(multiple_cstrings):
     assert len(filter_match1) == 3
     assert len(filter_match2) == 0
 
+def test_findMatches_special_characters(one_line_c_string):
+    c_word = CompressedString('apple',['_'])
+    filter1 = CompressedString(')')
+    filter2 = CompressedString('@')
+    matches1 = findMatches(one_line_c_string,c_word,[filter1])
+    matches2 = findMatches(one_line_c_string,c_word,[filter2])
+    assert matches2 == []
+    assert len(matches1) == 1
