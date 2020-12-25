@@ -51,7 +51,7 @@ def test_expandMatches(one_line_c_string):
 
 @pytest.fixture
 def textFile():
-    with open('test.py','r') as f:
+    with open('sample.py','r') as f:
         return f.readlines()
 
 def test_translateMatches(textFile):

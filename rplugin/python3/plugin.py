@@ -55,6 +55,10 @@ class Jumper(object):
         self.vim.command("belowright split")
         self.vim.command("e FilterJump")
         self.vim.command("setlocal buftype=nofile")
+        self.vim.command("setlocal noswapfile")
+        # actually I rather see the buffer in case I switch windows w/o deleting jump buffer
+        # cannot delete buffer too when switching b/c can't guarantee autocmd will be last
+        # self.vim.command("setlocal nobuflisted")
         self.vim.command('setlocal filetype=FilterJump')
         for key,command in self.keymaps.items():
             self.vim.command(f"inoremap <buffer> {key} <ESC>:{command}<CR>")

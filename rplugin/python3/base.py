@@ -29,7 +29,7 @@ class WindowBufferPair(object):
         return self.vim.request("nvim_win_get_cursor",self.window)
     def setCursor(self,l_match):
         """
-        Note: Row + Column is now 1 indexed b/c we changed to excuting a direct vim command
+        Note: Row + Column is now 1 indexed b/c we changed to executing a direct vim command
         """
         #EC: we pressed enter when there was no match. In which case, just go back w/o moving the cursor
         if not l_match:

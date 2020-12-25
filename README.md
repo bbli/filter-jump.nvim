@@ -21,21 +21,27 @@ And finally, because I wanted an excuse to write my first Vim plugin :). So perh
 ## Installation
 Use your favorite plugin manager, such as [vim-plug](https://github.com/junegunn/vim-plug):
 ```
-Plug 'bbli/filter-jump' {'do': ':UpdateRemotePlugins'}
+Plug 'bbli/filter-jump.nvim', {'do': ':UpdateRemotePlugins'}
 ```
 ## Mappings/Usage
 ### Examples
 * All words/characters after the initial one will be used to "filter" the matches. My idea was basically to keep typing words/phrases around the place I want to jump to rather than do something that involved more "decision making", such as planning a sequence of vim motions or thinking about the least commonly occuring characters.
+![filter](imgs/filter.svg)
 
-* Or you can just start moving to the next matches
+* Or you can just start moving to the next matches.If result is near bottom, I just use `<C-p>` instead
+![select_next](imgs/select_next_match.svg)
 
-* Or do both! The algorithm will keep track 
+* Or do both! The algorithm will keep track of where your latest selection is at and will choose the closest among the new set of highlights
+![find_closet](imgs/find_closet.svg)
+
+* Finally, you can call `FilterJumpLineForward` and `FilterJumpLineBackward` for variable length `f/F` search. Note that all options from above are available in this mode too, though I doubt you need them
+![one_line](imgs/one_line.svg)
 
 ### HOW TO
 1. Opening FilterJump
-* Add a map to `<Plug>(FilterJumpOpen)` in your vimrc. This also exists as a command mode command `:FilterJumpOpen`.(Note there is no default mapping)
+* Add a map to `<Plug>(FilterJump)` in your vimrc. This also exists as a command mode command `:FilterJump`.(There is no default mapping)
 ```
-nmap <leader>jj <Plug>(FilterJumpOpen)
+nmap s <Plug>(FilterJump)
 ```
 2. FilterJump Action Keys
 * These are the default hotkeys. Add this to your vimrc and change it if you want
@@ -62,10 +68,10 @@ let g:filter_jump_strip_characters = ["_","@"]
 let g:filter_jump_buffer_options = ["inoremap <buffer> <C-j> <Nop>","CocDisable"]
 ```
 ### Changing the Highlight Coloring
-This plugin defines the highlight groups `SearchCurrent` and `SearchHighlights`, and maps them to `Search` and `Visual` highlight groups respectively. If you would like to change that, add something like the following:
+This plugin defines the highlight groups `SearchCurrent` and `SearchHighlights`, and maps them to built in `Search` and `IncSearch` highlight groups respectively. If you would like to change that, add something like the following:
 ```
 highlight! link SearchCurrent Red "This assumes you have the Red highlight group defined.
 highlight! link SearchHighlights Green
 ```
 ## Acknowledgements
-[Aerojump](https://github.com/ripxorip/aerojump.nvim) for the settings I need to set when opening the jump buffer
+[Aerojump](https://github.com/ripxorip/aerojump.nvim) for the settings I need to set when opening the jump buffer and keymapping code
