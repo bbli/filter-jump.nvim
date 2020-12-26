@@ -30,21 +30,21 @@ def test_createRangeOfCompressedStrings(one_line_c_string):
 
 def test_findMatches(one_line_c_string):
     c_word = CompressedString('Shard',['_'])
-    match = findMatches(one_line_c_string,c_word)[0]
-    assert one_line_c_string.getString()[match.start()] == 'S'
-    assert one_line_c_string.getString()[match.end()] == 'I'
-    assert match.start() == 13
-    assert match.end() == 18
+    match = findMatches(one_line_c_string.getString(),c_word.getString())[0]
+    assert one_line_c_string.getString()[match[0]] == 'S'
+    assert one_line_c_string.getString()[match[1]] == 'I'
+    assert match[0] == 13
+    assert match[1] == 18
 
 def test_findMatches_Empty(one_line_c_string):
     c_word = CompressedString('abs',['_'])
-    matches = findMatches(one_line_c_string,c_word)
+    matches = findMatches(one_line_c_string.getString(),c_word.getString())
     if matches:
         assert 1 == 0
 
 def test_expandMatches(one_line_c_string):
     c_word = CompressedString('apple',['_'])
-    match = findMatches(one_line_c_string,c_word)[0]
+    match = findMatches(one_line_c_string.getString(),c_word.getString())[0]
     expanded_match = one_line_c_string.expandMatches([match])[0]
     assert expanded_match[0] == 0
     assert expanded_match[1] ==  8
@@ -61,7 +61,7 @@ def test_translateMatches(textFile):
 
     list_of_highlights = []
     for rel_line,c_string in enumerate(array_of_c_strings):
-        matches = findMatches(c_string,c_word)
+        matches = findMatches(c_string.getString(),c_word.getString())
         if not matches:
             continue
         # DPrintf("c_string = {}".format(c_string.getString()))
@@ -75,21 +75,21 @@ def test_translateMatches(textFile):
 def test_findMatches_filterNoResults(one_line_c_string):
     c_word = CompressedString('apple',['_'])
     filter = CompressedString('DD',['_'])
-    matches1 = findMatches(one_line_c_string,c_word)
+    matches1 = findMatches(one_line_c_string.getString(),c_word.getString())
     assert len(matches1) == 1
-    matches2 = findMatches(one_line_c_string,c_word,[filter])
+    matches2 = findMatches(one_line_c_string.getString(),c_word.getString(),[filter])
     assert len(matches2) == 0
 
 
 def test_findMatches_filterTwoDownToOneResult(multiple_cstrings):
     c_word = CompressedString('a',['_'])
     filter = CompressedString('head')
-    matches1 = findMatches(multiple_cstrings[0],c_word)
-    matches2 = findMatches(multiple_cstrings[1],c_word)
+    matches1 = findMatches(multiple_cstrings[0].getString(),c_word.getString())
+    matches2 = findMatches(multiple_cstrings[1].getString(),c_word.getString())
     assert len(matches1) + len(matches2) == 4
 
-    filter_match1 = findMatches(multiple_cstrings[0],c_word,[filter])
-    filter_match2 = findMatches(multiple_cstrings[1],c_word,[filter])
+    filter_match1 = findMatches(multiple_cstrings[0].getString(),c_word.getString(),[filter])
+    filter_match2 = findMatches(multiple_cstrings[1].getString(),c_word.getString(),[filter])
     assert len(filter_match1) == 3
     assert len(filter_match2) == 0
 
@@ -97,7 +97,7 @@ def test_findMatches_special_characters(one_line_c_string):
     c_word = CompressedString('apple',['_'])
     filter1 = CompressedString(')')
     filter2 = CompressedString('@')
-    matches1 = findMatches(one_line_c_string,c_word,[filter1])
-    matches2 = findMatches(one_line_c_string,c_word,[filter2])
+    matches1 = findMatches(one_line_c_string.getString(),c_word.getString(),[filter1])
+    matches2 = findMatches(one_line_c_string.getString(),c_word.getString(),[filter2])
     assert matches2 == []
     assert len(matches1) == 1

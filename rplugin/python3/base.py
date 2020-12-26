@@ -44,13 +44,11 @@ class WindowBufferPair(object):
         # DPrintf("Vim Current Line: {}".format(self.vim.current.line))
         # assert result[0] == self.vim.current.line
         return result[0]
-    def getLineRange(self,type):
+    def t_getLineRangeAndTranslator(self,type):
         if type == "Regular":
             abs_top = self._getLineFromWindowMotion("H")
             abs_bottom = self._getLineFromWindowMotion("L") # number already accounts for resize due to FilterJump
             page_content = self.vim.call("getbufline",self.buffer,abs_top,abs_bottom)
-            # My personal preference is to ignore capital letters when making big jumps but keep it for the one line cases below
-            page_content = [s.lower() for s in page_content]
             return page_content,VimTranslator(abs_top-1)#Since vim calls are 1 indexed
         elif type == "Forward":
             page_content = self.getCurrLine()
@@ -147,11 +145,13 @@ class CompressedString(object):
             return self.index_map[start], self.index_map[end]
     # @debug
     def expandMatches(self,matches):
-        return [self._expand(match.start(),match.end()) for match in matches]
+        return [self._expand(match[0],match[1]) for match in matches]
     @staticmethod
     def createArrayOfCompressedStrings(page_content,set_of_strip_characters):
         compressed_range = []
         for string in page_content:
+            # My personal preference is to ignore capital letters when making big jumps but keep it for the one line cases below
+            string = string.lower()
             compressed_range.append(CompressedString(string,set_of_strip_characters))
         return compressed_range
 
@@ -165,7 +165,7 @@ class Highlighter(object):
         self.current_l_match = None
         self.idx = 0
         self.variable_to_print = None
-    def update_highlighter(self,list_of_highlights,type):
+    def t_updateHighlighter(self,list_of_highlights,type):
         # EC: no highlight matches
         if not list_of_highlights:
             self.variable_to_print = None
@@ -296,7 +296,7 @@ def _isContainedIn(current_l_match,bigger_l_match):
     else:
         return False
 ################ **** ##################
-def extractWordAndFilters(input,strip_set):
+def extractCWordAndFilters(input,strip_set):
     input = input.split(' ')
 
     c_word = input[0]
@@ -310,24 +310,24 @@ def extractWordAndFilters(input,strip_set):
     return c_word,c_filters
 ################ **** ##################
 # @debug
-def findMatches(c_string,c_word,list_of_c_filters=[]):
+def findMatches(string,word,list_of_c_filters=[]):
     """
     Note: match.end()  returns 1 over, just like C++
     """
-    matches = _findCWordInCString(c_word,c_string)
+    matches = _findWordInString(word,string)
     # TODO: search order changes depending on search up or search down
     for c_filter in list_of_c_filters:
-        if not _findCWordInCString(c_filter,c_string):
+        if not _findWordInString(c_filter.getString(),string):
             return []
-    return matches
+    return [(match.start(),match.end()) for match in matches]
 
 # @debug
 # def escape(word):
     # return re.escape(word)
 
-def _findCWordInCString(c_word,c_string):
-    c_word = re.escape(c_word.getString())
-    return [ x for x in re.finditer(c_word,c_string.getString())]
+def _findWordInString(word,string):
+    word = re.escape(word)
+    return [ x for x in re.finditer(word,string)]
 ################ **** ##################
 # @debug
 def _onlyKeepCharactersInFront(curr_line,curr_col):

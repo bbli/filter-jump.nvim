@@ -20,7 +20,8 @@ Plug 'bbli/filter-jump.nvim', {'do': ':UpdateRemotePlugins'}
 ```
 ## Mappings/Usage
 ### Examples
-* All words/characters after the initial one will be used to "filter" the matches. My idea was basically to keep typing words/phrases around the place I want to jump to rather than do something that involved more "decision making", such as planning a sequence of vim motions or thinking about the least commonly occuring characters.
+* All words/characters after the initial one will be used to "filter" the matches. My idea was basically to keep typing words/phrases around the place I want to jump to rather than do something that involved more "decision making", such as planning a sequence of vim motions or thinking about the least commonly occurring characters.
+* Search is case insensitive and will ignore certain characters of your choosing(See More Customization below)
 ![filter](imgs/filter.svg)
 
 * Or you can just start moving to the next matches.If result is near bottom, I just use `<C-p>` instead
@@ -29,7 +30,8 @@ Plug 'bbli/filter-jump.nvim', {'do': ':UpdateRemotePlugins'}
 * Or do both! The algorithm will keep track of where your latest selection is at and will choose the closest among the new set of highlights
 ![find_closet](imgs/find_closet.svg)
 
-* Finally, you can call `FilterJumpLineForward` and `FilterJumpLineBackward` for variable length `f/F` search. Note that filtering is not available in this mode now
+* Finally, you can call `FilterJumpLineForward` and `FilterJumpLineBackward` for variable length `f/F` search.
+* Note that filtering is not available in this mode. Also search is now case sensitive and there are no ignore characters
 ![one_line](imgs/one_line.svg)
 
 ### HOW TO
