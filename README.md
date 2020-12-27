@@ -9,8 +9,9 @@ I wanted a smooth way to move the cursor subject to certain criterion in the fol
     * Vim's normal mode `f` suffers from two main problems. First, often times one character is just too imprecise, which will means we have to traverse with `;` 2-4 times before reaching our destination. 
     * Second, because the matching results are not highlighted, it is hard to know exactly how many times we have to press `;`. To continue with our computer science analogy, we are basically traversing at the speed of a linked list, where we are unable to "prefetch" the next memory segment(aka whether or not to change the character we are searching for or just keep spamming `;`) until we have arrived at the current node(aka match).
 
-Furthermore, the following plugins could not produce the behavior I wanted, for various [reasons](other_plugins.md):
-And finally, because I wanted an excuse to write my first Vim plugin :). So perhaps the behavior I wanted could have been achieved through advanced configuration/hacking of the above plugins.
+Furthermore, the following plugins could not produce the behavior I wanted, for various [reasons](other_plugins.md).
+
+And finally, I wanted an excuse to write my first Vim plugin :). So perhaps the behavior I wanted could have been achieved through advanced configuration/hacking of the above plugins.
 
 
 ## Installation
@@ -22,15 +23,16 @@ Plug 'bbli/filter-jump.nvim', {'do': ':UpdateRemotePlugins'}
 ### Examples
 * All words/characters after the initial one will be used to "filter" the matches. My idea was basically to keep typing words/phrases around the place I want to jump to rather than do something that involved more "decision making", such as planning a sequence of vim motions or thinking about the least commonly occurring characters.
 * Search is case insensitive and will ignore certain characters of your choosing(See More Customization below)
+* Will not add to search history, but will add to jumplist
 ![filter](imgs/filter.svg)
 
-* Or you can just start moving to the next matches.If result is near bottom, I just use `<C-p>` instead
+* Or you can just start moving to the next matches. If result is near bottom, I just use `<C-p>` instead
 ![select_next](imgs/select_next_match.svg)
 
 * Or do both! The algorithm will keep track of where your latest selection is at and will choose the closest among the new set of highlights
 ![find_closet](imgs/find_closet.svg)
 
-* Finally, you can call `FilterJumpLineForward` and `FilterJumpLineBackward` for variable length `f/F` search.
+* Finally, you can call `:FilterJumpLineForward` and `:FilterJumpLineBackward` for variable length `f/F` search.
 * Note that filtering is not available in this mode. Also search is now case sensitive and there are no ignore characters
 ![one_line](imgs/one_line.svg)
 
@@ -60,12 +62,12 @@ let g:filter_jump_keymaps = {
 ### Characters to Ignore
 By default, this plugin will just ignore `_` when searching during `:FilterJump`. To override this:
 ```
-let g:filter_jump_strip_characters = ["_","@"]
+let g:filter_jump_strip_characters = ["_","#",":"]
 ```
 ### Setting specific options in the JumpBuffer
 * Since the search word is typed in a temporary buffer, there may be some keymaps that you would like to not be triggered in this buffer.(As shown below, you actually can put any command mode command into the list, and they will be called when the JumpBuffer is opened) 
 ```
-let g:filter_jump_buffer_options = ["inoremap <buffer> <C-j> <Nop>","CocDisable"]
+let g:filter_jump_buffer_options = ["inoremap <buffer> <C-j> <Nop>" "CocDisable","let b:coc_pairs_disabled = ['`','(','[','{','<',]"]
 ```
 ### Changing the Highlight Coloring
 This plugin defines the highlight groups `SearchCurrent` and `SearchHighlights`, and maps them to built in `Search` and `IncSearch` highlight groups respectively. If you would like to change that, add something like the following:
