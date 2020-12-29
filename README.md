@@ -2,12 +2,16 @@ filter-jump
 ==========
 ## Motivation
 I wanted a smooth way to move the cursor subject to certain criterion in the follow scenarios:
-1. Large Screen Wide Movement:
-    * No typing numbers: As explained in this [video](https://www.youtube.com/watch?v=tSq7yDwS1vM&list=LLfDw9928RXloc-CAvO-h-Kw&index=368), numbers are far away and do not keep your typing "cache-friendly".(Also I'm just bad at touch typing numbers)
-    * Jump actually adds to jumps list: For example, relative movements(i.e `10j`) will not be added to the jumplist. Although absolute movements do add to the jumplist, this may force you to type 3+ numbers, which as explained above, is slowww.
-2. Better One Line `f` Functionality:
-    * Vim's normal mode `f` suffers from two main problems. First, often times one character is just too imprecise, which will means we have to traverse with `;` 2-4 times before reaching our destination. 
-    * Second, because the matching results are not highlighted, it is hard to know exactly how many times we have to press `;`. To continue with our computer science analogy, we are basically traversing at the speed of a linked list, where we are unable to "prefetch" the next memory segment(aka whether or not to change the character we are searching for or just keep spamming `;`) until we have arrived at the current node(aka match).
+1. Large Screen Wide Movement/Better `/` Functionality:
+* No typing numbers: As explained in this [video](https://www.youtube.com/watch?v=tSq7yDwS1vM&list=LLfDw9928RXloc-CAvO-h-Kw&index=368), numbers are far away and do not keep your typing "cache-friendly".(Also I'm just bad at touch typing numbers)
+* Jump actually adds to jumps list: For example, relative movements(i.e `10j`) will not be added to the jumplist. Although absolute movements do add to the jumplist, this may force you to type 3+ numbers, which as explained above, is slowww.
+* So based off the requirements above, it would seem `/` would do the job. The issues with it, however, are as follows: 
+    * Forces me to type the exact match, when often times I want to ignore capital letters and underscores. Although I can set the search to be case insensitive, that then conflicts when I want to use `/` to actually search instead of jump
+    * Will search the entire file instead of just the letters in the current window. This is problematic b/c if the next match is only available off screen, vim will scroll my buffer down rather than remaining in the same view
+    * Jump searches will pollute my search history.
+2. Inline Movement/Better `f` Functionality:
+* Vim's normal mode `f` suffers from two main problems. First, often times one character is just too imprecise, which will means we have to traverse with `;` 2-4 times before reaching our destination. 
+* Second, because the matching results are not highlighted, it is hard to know exactly how many times we have to press `;`. To continue with our computer science analogy, we are basically traversing at the speed of a linked list, where we are unable to "prefetch" the next memory segment(aka whether or not to change the character we are searching for or just keep spamming `;`) until we have arrived at the current node(aka match).
 
 Furthermore, the following plugins could not produce the behavior I wanted, for various [reasons](other_plugins.md).
 

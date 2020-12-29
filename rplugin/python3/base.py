@@ -128,7 +128,8 @@ class CompressedString(object):
     def __init__(self,string,set_of_strip_characters=['_']):
         new_string = []
         index_map = []
-        for i,char in enumerate(string):
+        # My personal preference is to ignore capital letters when making big jumps but keep it for the one line cases below
+        for i,char in enumerate(string.lower()):
             if char not in set_of_strip_characters:
                 new_string.append(char)
                 index_map.append(i)
@@ -150,8 +151,6 @@ class CompressedString(object):
     def createArrayOfCompressedStrings(page_content,set_of_strip_characters):
         compressed_range = []
         for string in page_content:
-            # My personal preference is to ignore capital letters when making big jumps but keep it for the one line cases below
-            string = string.lower()
             compressed_range.append(CompressedString(string,set_of_strip_characters))
         return compressed_range
 
