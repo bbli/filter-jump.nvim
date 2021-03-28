@@ -71,7 +71,7 @@ let g:filter_jump_strip_characters = ["_","#",":"]
 ### Setting specific options in the JumpBuffer
 * Since the search word is typed in a temporary buffer, there may be some keymaps that you would like to not be triggered in this buffer.(As shown below, you actually can put any command mode command into the list, and they will be called when the JumpBuffer is opened) 
 ```
-let g:filter_jump_buffer_options = ["inoremap <buffer> <C-j> <Nop>" "CocDisable","let b:coc_pairs_disabled = ['`','(','[','{','<',]"]
+let g:filter_jump_buffer_options = ["inoremap <buffer> <C-j> <Nop>" ,"let b:coc_pairs_disabled = ['`','(','[','{','<',]"]
 ```
 ### Changing the Highlight Coloring
 This plugin defines the highlight groups `SearchCurrent` and `SearchHighlights`, and maps them to built in `Search` and `IncSearch` highlight groups respectively. If you would like to change that, add something like the following:

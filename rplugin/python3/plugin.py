@@ -64,6 +64,7 @@ class Jumper(object):
         options = self.vim.vars.get("filter_jump_buffer_options")
         if options is not None:
             for buffer_specific_option in options:
+                # DPrintf(buffer_specific_option)
                 self.vim.command(buffer_specific_option)
         self.j_window_buffer = WindowBufferPair(
                 self.vim.current.window,

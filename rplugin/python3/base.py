@@ -1,8 +1,11 @@
 import pynvim
 import re
 
-log_file = open('log.txt','w')
 def DPrintf(stringable):
+    if 'log_file' not in globals():
+        global log_file
+        log_file = open('log.txt','w')
+
     log_file.write(str(stringable))
     log_file.write('\n')
     log_file.flush()
