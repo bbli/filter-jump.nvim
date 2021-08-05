@@ -94,7 +94,7 @@ class Jumper(object):
         new_highlights = vim_translator.translateMatches(0,matches)
 
         # 4. Highlighting
-        self.highlighter.t_updateHighlighter(new_highlights,self.type)
+        self.highlighter.t_updateHighlighter(new_highlights,self.type,self.o_window_buffer._getCurrCursorForced())
         self.o_window_buffer.drawHighlights(self.highlighter)
 
 
@@ -118,7 +118,7 @@ class Jumper(object):
             new_highlights.extend(lm_pairs)
 
         # 4. Highlighting
-        self.highlighter.t_updateHighlighter(new_highlights,self.type)
+        self.highlighter.t_updateHighlighter(new_highlights,self.type,self.o_window_buffer._getCurrCursorForced())
         self.o_window_buffer.drawHighlights(self.highlighter)
 
     @pynvim.command("FilterJumpNextMatch",nargs=0,sync=True)

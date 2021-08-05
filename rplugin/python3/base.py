@@ -167,7 +167,8 @@ class Highlighter(object):
         self.current_l_match = None
         self.idx = 0
         self.variable_to_print = None
-    def t_updateHighlighter(self,list_of_highlights,type):
+    def t_updateHighlighter(self,list_of_highlights,type,curr_pos):
+        DPrintf("curr pos passed to updateHighlighter: {}".format(curr_pos))
         # EC: no highlight matches
         if not list_of_highlights:
             self.variable_to_print = None
@@ -180,7 +181,7 @@ class Highlighter(object):
         elif type == "Backward":
             self.update_highlighter_backward(list_of_highlights)
         else:
-            self.update_highlighter_regular(list_of_highlights)
+            self.update_highlighter_regular(list_of_highlights,curr_pos)
 
         self.variable_to_print = self.current_l_match
         self.list_of_highlights = list_of_highlights
@@ -201,14 +202,20 @@ class Highlighter(object):
             self.idx = idx
             self.current_l_match = new_current_l_match
 
-    def update_highlighter_regular(self,list_of_highlights):
+    def update_highlighter_regular(self,list_of_highlights,curr_pos):
+        DPrintf("one entry in list_of_highlights data structure: {}".format(list_of_highlights[0]))
         if not self.current_l_match:
             # 1. Creates current selection
-            self.current_l_match = list_of_highlights[0]
-            self.idx = 0
+            # D: is curr_pos +/- 1 from self.current_l_match? Nah, should be fine
+            # HACK: making up a match structure for the sake of reusing _findClosestInterval code.
+            # NOTE: -1 is b/c highlights goes by 0 indexing
+            idx, new_current_l_match = _findClosestInterval(list_of_highlights,
+                                                        (curr_pos[0]+1,(curr_pos[1],curr_pos[1])))
+            self.current_l_match = new_current_l_match
+            self.idx = idx
         else:
         # Case 2: Need to track current selection vs updated matches
-            idx, new_current_l_match = _findClosestInverval(list_of_highlights,self.current_l_match)
+            idx, new_current_l_match = _findClosestInterval(list_of_highlights,self.current_l_match)
             self.current_l_match = new_current_l_match
             self.idx = idx
 
@@ -241,12 +248,13 @@ class Highlighter(object):
 
 ################ **Helpers** ##################
 # @debug
-def _findClosestInverval(list_of_highlights,current_l_match):
+def _findClosestInterval(list_of_highlights,current_l_match):
     min_dis = _calcManDistance(list_of_highlights[0],current_l_match)
     min_l_match = list_of_highlights[0]
     min_idx = 0
     for idx, l_match in enumerate(list_of_highlights[1:]):
         #TODO: early exit if distances start to increase
+        DPrintf("current_l_match: {}".format(current_l_match))
         dis = _calcManDistance(l_match,current_l_match)
         if dis < min_dis:
             min_dis = dis
