@@ -81,3 +81,7 @@ highlight! link SearchHighlights Green
 ```
 ## Acknowledgements
 [Aerojump](https://github.com/ripxorip/aerojump.nvim) for the settings I need to set when opening the jump buffer and keymapping code
+
+## TODO
+* why isn't highlighting working when there are errors?
+* apply closest first to FilterLineForward/Backwards too -> to see how easy it was to change
